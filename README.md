@@ -35,6 +35,7 @@ Detailed architecture documentation is available in the [`docs/`](docs/) directo
 | [SOFTWARE.md](docs/SOFTWARE.md) | Software components and modules |
 | [NETWORK.md](docs/NETWORK.md) | Network architecture and WebDAV enhancements |
 | [DATA_FLOW.md](docs/DATA_FLOW.md) | Data flow diagrams and sequences |
+| [MEMORY_MANAGEMENT.md](docs/MEMORY_MANAGEMENT.md) | Objective-C style memory management for ESP8266 |
 
 ---
 
