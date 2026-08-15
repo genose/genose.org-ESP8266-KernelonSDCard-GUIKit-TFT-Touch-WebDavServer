@@ -25,7 +25,8 @@ docs/discussion_analysis/
 ├── 16_SCROLLABLE_UNION.md            # Union-based scrollable property with bitmask flags
 ├── 17_GRADIENT_UNION.md              # Union-based gradient-color with accessors, RGB565 default
 ├── 18_GRADIENT_GROUP.md             # Gradient group with up to 6 independent gradients per widget
-└── 19_TEXT_EDITOR.md                # Full-featured text editor evolved from text field
+├── 19_TEXT_EDITOR.md                # Full-featured text editor evolved from text field
+└── 20_TEXT_EDITOR_SD.md            # SD card temp buffer integration with /tmp/(filename)_(selection_type).txt pattern
 ```
 
 ## Concept Categories
@@ -123,6 +124,16 @@ docs/discussion_analysis/
 - Directory listing and creation
 - Authentication system
 
+### 12. Text Editor SD Card Integration
+- SD card temp buffer integration for text editor
+- File pattern: `/tmp/(filename)_(full|selection|line_N|clipboard|cursor|backup|custom).txt`
+- SdSelectionType enum for selection types
+- SdStatus enum for operation status
+- TextEditorSd structure with callbacks
+- Auto-save and session management
+- Bookmark and marker support
+- File management utilities
+
 ### 12. ESP8266 Optimizations
 - RAM constraints (80KB limit)
 - Flash memory constraints
@@ -175,6 +186,8 @@ src/gui/
 ├── widget_gradient_group.c     # Gradient group implementation
 ├── text_editor.h               # Full-featured text editor
 ├── text_editor.c               # Text editor implementation
+├── text_editor_sd.h            # Text editor SD card temp buffer integration
+├── text_editor_sd.c            # Text editor SD implementation
 ├── style.h                     # Draw style definitions
 ├── style.cpp                   # Style utility functions
 ├── renderer.h                  # Renderer declarations
@@ -253,3 +266,4 @@ Each file contains:
 - [x] Gradient union implementation (widget_gradient.h/c)
 - [x] Gradient group implementation (widget_gradient_group.h/c)
 - [x] Text editor implementation (text_editor.h/c)
+- [x] Text editor SD card integration (text_editor_sd.h/c, 20_TEXT_EDITOR_SD.md)
