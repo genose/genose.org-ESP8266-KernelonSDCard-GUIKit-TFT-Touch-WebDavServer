@@ -36,6 +36,51 @@ Detailed architecture documentation is available in the [`docs/`](docs/) directo
 | [NETWORK.md](docs/NETWORK.md) | Network architecture and WebDAV enhancements |
 | [DATA_FLOW.md](docs/DATA_FLOW.md) | Data flow diagrams and sequences |
 | [MEMORY_MANAGEMENT.md](docs/MEMORY_MANAGEMENT.md) | Objective-C style memory management for ESP8266 |
+| [memory_strategy_config.md](docs/memory_strategy_config.md) | Memory strategy configuration with config struct |
+| [about_ram_expansion.md](about_ram_expansion.md) | External RAM expansion analysis |
+| [about_port_expander.md](about_port_expander.md) | SPI port expander analysis |
+| [about_huge_demo_ram_requirements.md](about_huge_demo_ram_requirements.md) | Huge demo RAM requirements |
+| [demo_huge_gui_result.txt](src/gui/demo_huge_gui_result.txt) | Huge GUI memory strategy results |
+
+---
+
+## 🎯 New Features
+
+### Memory Strategy System
+
+The GUIKit now features a **hierarchical memory strategy** with explicit STOP-at-first-success behavior:
+
+```
+1. Try External RAM -> if (available AND GUI fits) => SELECT & STOP
+2. Try SD Card Swap -> if (available AND GUI fits) => SELECT & STOP
+3. Try Internal RAM -> if (GUI fits) => SELECT & STOP
+4. Else => FAILED
+```
+
+**Key Components:**
+- `memory_strategy_config_t` in `guikit_hw_config.h` - Configurable thresholds and behavior flags
+- `gui_memory_strategy.h/cpp` - Strategy selection and loading implementation
+- `demo_huge_gui_result.txt` - Results for 500KB GUI with different hardware configurations
+
+**Configuration Options:**
+- `external_ram_min_size` - Minimum GUI size to use external RAM (default: 4KB)
+- `sd_swap_min_size` - Minimum GUI size for SD swap (default: 16KB)
+- `internal_ram_max_size` - Maximum GUI size for internal RAM (default: 8KB)
+- `external_ram_max_size` - Maximum external RAM size (default: 128KB)
+
+### Bootloader
+
+A **hardware detection bootloader** that automatically:
+1. Detects all SPI devices (SRAM, PSRAM, SD Card, TFT, Touch, Expanders)
+2. Initializes RAM (internal and external)
+3. Configures memory strategy based on detected hardware
+4. Tests strategy with various GUI sizes
+5. Displays results on TFT (if available)
+
+**Files:**
+- `src/boot/guikit_bootloader.h` - Bootloader header
+- `src/boot/guikit_bootloader.cpp` - Full implementation
+- `src/boot/README.md` - Complete bootloader documentation
 
 ---
 
