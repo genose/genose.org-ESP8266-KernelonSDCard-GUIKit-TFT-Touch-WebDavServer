@@ -1,0 +1,286 @@
+{
+  "version": "1.0",
+  "name": "WebDAV Server Management",
+  "size": {
+    "width": 320,
+    "height": 240
+  },
+  "background": "#1E1E1E",
+  "widgets": [
+    {
+      "id": "title_bar",
+      "type": "view",
+      "x": 0,
+      "y": 0,
+      "width": 320,
+      "height": 30,
+      "background": "#8B4513",
+      "border_color": "#654321",
+      "border_width": 1,
+      "children": [
+        {
+          "id": "title",
+          "type": "label",
+          "x": 10,
+          "y": 5,
+          "width": 200,
+          "height": 20,
+          "text": "WebDAV Server Manager",
+          "text_color": "#FFFFFF",
+          "text_size": 16,
+          "text_align": "left",
+          "font": "bold"
+        },
+        {
+          "id": "status_indicator",
+          "type": "label",
+          "x": 220,
+          "y": 7,
+          "width": 90,
+          "height": 16,
+          "text": "Status: OFF",
+          "text_color": "#FF4444",
+          "text_size": 12,
+          "text_align": "right",
+          "font": "regular"
+        }
+      ]
+    },
+    {
+      "id": "connection_panel",
+      "type": "view",
+      "x": 10,
+      "y": 40,
+      "width": 300,
+      "height": 80,
+      "background": "#252526",
+      "border_color": "#3E3E42",
+      "border_width": 1,
+      "children": [
+        {
+          "id": "conn_label",
+          "type": "label",
+          "x": 5,
+          "y": 5,
+          "width": 100,
+          "height": 20,
+          "text": "Server URL:",
+          "text_color": "#D4D4D4",
+          "text_size": 12,
+          "text_align": "left"
+        },
+        {
+          "id": "server_url",
+          "type": "text_input",
+          "x": 110,
+          "y": 5,
+          "width": 185,
+          "height": 20,
+          "text": "http://esp8266.local:8080/webdav",
+          "text_color": "#FFFFFF",
+          "background": "#2D2D2D",
+          "border_color": "#3E3E42",
+          "border_width": 1,
+          "text_size": 12
+        },
+        {
+          "id": "username_label",
+          "type": "label",
+          "x": 5,
+          "y": 35,
+          "width": 100,
+          "height": 20,
+          "text": "Username:",
+          "text_color": "#D4D4D4",
+          "text_size": 12,
+          "text_align": "left"
+        },
+        {
+          "id": "username",
+          "type": "text_input",
+          "x": 110,
+          "y": 35,
+          "width": 110,
+          "height": 20,
+          "text": "admin",
+          "text_color": "#FFFFFF",
+          "background": "#2D2D2D",
+          "border_color": "#3E3E42",
+          "border_width": 1,
+          "text_size": 12
+        },
+        {
+          "id": "password_label",
+          "type": "label",
+          "x": 225,
+          "y": 35,
+          "width": 70,
+          "height": 20,
+          "text": "Password:",
+          "text_color": "#D4D4D4",
+          "text_size": 12,
+          "text_align": "left"
+        },
+        {
+          "id": "password",
+          "type": "text_input",
+          "x": 295,
+          "y": 35,
+          "width": 100,
+          "height": 20,
+          "text": "****",
+          "text_color": "#FFFFFF",
+          "background": "#2D2D2D",
+          "border_color": "#3E3E42",
+          "border_width": 1,
+          "text_size": 12,
+          "password": true
+        }
+      ]
+    },
+    {
+      "id": "action_buttons",
+      "type": "view",
+      "x": 10,
+      "y": 130,
+      "width": 300,
+      "height": 30,
+      "background": "#252526",
+      "border_color": "#3E3E42",
+      "border_width": 1,
+      "children": [
+        {
+          "id": "connect_btn",
+          "type": "button",
+          "x": 0,
+          "y": 3,
+          "width": 80,
+          "height": 24,
+          "text": "Connect",
+          "text_color": "#FFFFFF",
+          "background": "#4CAF50",
+          "border_color": "#388E3C",
+          "border_width": 1,
+          "text_size": 12,
+          "action": "webdav_connect"
+        },
+        {
+          "id": "disconnect_btn",
+          "type": "button",
+          "x": 85,
+          "y": 3,
+          "width": 80,
+          "height": 24,
+          "text": "Disconnect",
+          "text_color": "#FFFFFF",
+          "background": "#F44336",
+          "border_color": "#D32F2F",
+          "border_width": 1,
+          "text_size": 12,
+          "action": "webdav_disconnect"
+        },
+        {
+          "id": "test_btn",
+          "type": "button",
+          "x": 170,
+          "y": 3,
+          "width": 65,
+          "height": 24,
+          "text": "Test",
+          "text_color": "#FFFFFF",
+          "background": "#2196F3",
+          "border_color": "#1976D2",
+          "border_width": 1,
+          "text_size": 12,
+          "action": "webdav_test"
+        },
+        {
+          "id": "browse_btn",
+          "type": "button",
+          "x": 240,
+          "y": 3,
+          "width": 60,
+          "height": 24,
+          "text": "Browse",
+          "text_color": "#FFFFFF",
+          "background": "#607D8B",
+          "border_color": "#455A64",
+          "border_width": 1,
+          "text_size": 12,
+          "action": "webdav_browse"
+        }
+      ]
+    },
+    {
+      "id": "status_panel",
+      "type": "view",
+      "x": 10,
+      "y": 170,
+      "width": 300,
+      "height": 60,
+      "background": "#252526",
+      "border_color": "#3E3E42",
+      "border_width": 1,
+      "children": [
+        {
+          "id": "status_label",
+          "type": "label",
+          "x": 5,
+          "y": 5,
+          "width": 80,
+          "height": 20,
+          "text": "Status:",
+          "text_color": "#D4D4D4",
+          "text_size": 12,
+          "text_align": "left"
+        },
+        {
+          "id": "status_text",
+          "type": "label",
+          "x": 90,
+          "y": 5,
+          "width": 205,
+          "height": 20,
+          "text": "Not connected",
+          "text_color": "#858585",
+          "text_size": 12,
+          "text_align": "left"
+        },
+        {
+          "id": "files_label",
+          "type": "label",
+          "x": 5,
+          "y": 30,
+          "width": 80,
+          "height": 20,
+          "text": "Files:",
+          "text_color": "#D4D4D4",
+          "text_size": 12,
+          "text_align": "left"
+        },
+        {
+          "id": "files_text",
+          "type": "label",
+          "x": 90,
+          "y": 30,
+          "width": 205,
+          "height": 20,
+          "text": "0 files, 0 directories",
+          "text_color": "#858585",
+          "text_size": 12,
+          "text_align": "left"
+        }
+      ]
+    }
+  ],
+  "scripts": {
+    "on_init": "webdav_init()",
+    "on_show": "webdav_update_status()"
+  },
+  "metadata": {
+    "system_gui": true,
+    "purpose": "webdav_management",
+    "version": "1.0.0",
+    "category": "Network"
+  }
+}

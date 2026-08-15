@@ -1,0 +1,224 @@
+{
+  "version": "1.0",
+  "name": "User Management",
+  "size": {
+    "width": 320,
+    "height": 240
+  },
+  "background": "#1E1E1E",
+  "widgets": [
+    {
+      "id": "title_bar",
+      "type": "view",
+      "x": 0,
+      "y": 0,
+      "width": 320,
+      "height": 30,
+      "background": "#4B0082",
+      "border_color": "#36005D",
+      "border_width": 1,
+      "children": [
+        {
+          "id": "title",
+          "type": "label",
+          "x": 10,
+          "y": 5,
+          "width": 200,
+          "height": 20,
+          "text": "User Management",
+          "text_color": "#FFFFFF",
+          "text_size": 16,
+          "text_align": "left",
+          "font": "bold"
+        },
+        {
+          "id": "user_count",
+          "type": "label",
+          "x": 220,
+          "y": 7,
+          "width": 90,
+          "height": 16,
+          "text": "0 users",
+          "text_color": "#D4D4D4",
+          "text_size": 12,
+          "text_align": "right",
+          "font": "regular"
+        }
+      ]
+    },
+    {
+      "id": "action_buttons",
+      "type": "view",
+      "x": 10,
+      "y": 35,
+      "width": 300,
+      "height": 30,
+      "background": "#252526",
+      "border_color": "#3E3E42",
+      "border_width": 1,
+      "children": [
+        {
+          "id": "new_user_btn",
+          "type": "button",
+          "x": 0,
+          "y": 3,
+          "width": 80,
+          "height": 24,
+          "text": "New User",
+          "text_color": "#FFFFFF",
+          "background": "#4CAF50",
+          "border_color": "#388E3C",
+          "border_width": 1,
+          "text_size": 12,
+          "action": "user_new"
+        },
+        {
+          "id": "edit_user_btn",
+          "type": "button",
+          "x": 85,
+          "y": 3,
+          "width": 70,
+          "height": 24,
+          "text": "Edit",
+          "text_color": "#FFFFFF",
+          "background": "#2196F3",
+          "border_color": "#1976D2",
+          "border_width": 1,
+          "text_size": 12,
+          "action": "user_edit",
+          "disabled": true
+        },
+        {
+          "id": "delete_user_btn",
+          "type": "button",
+          "x": 160,
+          "y": 3,
+          "width": 70,
+          "height": 24,
+          "text": "Delete",
+          "text_color": "#FFFFFF",
+          "background": "#F44336",
+          "border_color": "#D32F2F",
+          "border_width": 1,
+          "text_size": 12,
+          "action": "user_delete",
+          "disabled": true
+        },
+        {
+          "id": "refresh_btn",
+          "type": "button",
+          "x": 235,
+          "y": 3,
+          "width": 65,
+          "height": 24,
+          "text": "🔄 Refresh",
+          "text_color": "#FFFFFF",
+          "background": "#607D8B",
+          "border_color": "#455A64",
+          "border_width": 1,
+          "text_size": 12,
+          "action": "user_refresh"
+        }
+      ]
+    },
+    {
+      "id": "search_box",
+      "type": "view",
+      "x": 10,
+      "y": 70,
+      "width": 300,
+      "height": 25,
+      "background": "#252526",
+      "border_color": "#3E3E42",
+      "border_width": 1,
+      "children": [
+        {
+          "id": "search_label",
+          "type": "label",
+          "x": 5,
+          "y": 3,
+          "width": 60,
+          "height": 19,
+          "text": "Search:",
+          "text_color": "#D4D4D4",
+          "text_size": 12,
+          "text_align": "left"
+        },
+        {
+          "id": "search_input",
+          "type": "text_input",
+          "x": 65,
+          "y": 3,
+          "width": 230,
+          "height": 19,
+          "text": "",
+          "text_color": "#FFFFFF",
+          "background": "#2D2D2D",
+          "border_color": "#3E3E42",
+          "border_width": 1,
+          "text_size": 12,
+          "hint": "Filter users..."
+        }
+      ]
+    },
+    {
+      "id": "users_container",
+      "type": "view",
+      "x": 10,
+      "y": 100,
+      "width": 300,
+      "height": 110,
+      "background": "#252526",
+      "border_color": "#3E3E42",
+      "border_width": 1,
+      "scrollable": 3,
+      "children": [
+        {
+          "id": "users_list",
+          "type": "view",
+          "x": 0,
+          "y": 0,
+          "width": 300,
+          "height": 500,
+          "background": "#252526",
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "info_bar",
+      "type": "view",
+      "x": 10,
+      "y": 215,
+      "width": 300,
+      "height": 20,
+      "background": "#2D2D2D",
+      "border_color": "#3E3E42",
+      "border_width": 1,
+      "children": [
+        {
+          "id": "info_text",
+          "type": "label",
+          "x": 5,
+          "y": 2,
+          "width": 290,
+          "height": 16,
+          "text": "Select a user to edit or delete",
+          "text_color": "#858585",
+          "text_size": 11,
+          "text_align": "left"
+        }
+      ]
+    }
+  ],
+  "scripts": {
+    "on_init": "users_init()",
+    "on_show": "users_refresh()"
+  },
+  "metadata": {
+    "system_gui": true,
+    "purpose": "user_management",
+    "version": "1.0.0",
+    "category": "System"
+  }
+}
