@@ -210,8 +210,9 @@ All commits pushed to `origin/main`:
 14. **92e05b7** - Add GUIKit hardware configuration structure
 15. **543c5c3** - Add unified hardware config struct matching user concept
 16. **cb2bbc6** - Add union-based hardware config for GUIKit
+17. **38c113d** - Add ESP8266 + MCP23S17 + 23LC1024 + TFT example
 
-**Total: 16 commits** adding ~235KB of code and documentation
+**Total: 17 commits** adding ~260KB of code and documentation
 
 ---
 
@@ -262,6 +263,10 @@ All commits pushed to `origin/main`:
 │   ├── guikit_config.h              # Full hardware configuration structure
 │   ├── guikit_hw_config.h            # Unified simple config (matches user concept)
 │   └── guikit_hw_config_union.h      # Union-based config (type-safe, memory efficient)
+│
+│   └── examples/                    # Example implementations
+│       ├── esp8266_expander_ram_tft.h  # Config definitions & pin mappings
+│       └── esp8266_expander_ram_tft.cpp # Complete implementation
 │
 └── docs/
     └── discussion_analysis/          # Architecture analysis documents
@@ -480,15 +485,16 @@ WebDAVManager.help();
 
 | Metric | Value |
 |--------|-------|
-| Total Commits | 16 |
-| Files Created | 21 |
+| Total Commits | 17 |
+| Files Created | 23 |
 | Files Modified | 5 |
-| Lines of Code Added | ~235,000 |
+| Lines of Code Added | ~260,000 |
 | Documentation Lines | ~150,000 |
 | GUI Projects | 4 |
 | Script Files | 3 |
 | Documentation Files | 28+ |
 | Header Files | 3 |
+| Example Files | 2 |
 
 ---
 
@@ -691,6 +697,138 @@ Savings: ~8 bytes per bank × 16 banks = ~128 bytes saved
 2. **GUIKIT_HW_UNION_ESP8266_HUGE_DEMO** - ESP8266 + 8×SRAM + TFT, Touch, SD
 3. **GUIKIT_HW_UNION_ESP8266_EXPANDER** - ESP8266 + 2×MCP23S17 + TFT, Touch, SD
 4. **GUIKIT_HW_UNION_ESP32_PREMIUM** - ESP32 + PSRAM + 2×MCP23S17 + TFT, Touch
+
+---
+
+## 📋 ESP8266 Example: MCP23S17 + 23LC1024 + TFT
+
+### Overview
+- **Files:** `src/examples/esp8266_expander_ram_tft.h` and `cpp`
+- **Purpose:** Complete working example of ESP8266 with external RAM, GPIO expander, and TFT
+- **Hardware:** ESP8266 NodeMCU v2 + MCP23S17 + 23LC1024 + ST7789 TFT
+
+### Hardware Wiring
+
+```
+ESP8266 NodeMCU Pinout:
+┌─────────────────────────────────────────────────────────┐
+│ TFT ST7789:          MCP23S17:          23LC1024:        │
+│   CS  = D8 (GPIO15)   CS  = D2 (GPIO4)   CS  = D0 (GPIO16)│
+│   DC  = D3 (GPIO0)    IRQ = D1 (GPIO5)                  │
+│   RST = D4 (GPIO2)                                       │
+│   SCK = D5 (GPIO14)   SCK = D5 (GPIO14)   SCK = D5 (GPIO14)│
+│   MOSI= D7 (GPIO13)   MOSI= D7 (GPIO13)   MOSI= D7 (GPIO13)│
+│   MISO= D6 (GPIO12)   MISO= D6 (GPIO12)   MISO= D6 (GPIO12)│
+└─────────────────────────────────────────────────────────┘
+```
+
+### Pin Definitions
+
+```cpp
+// TFT ST7789 Pins
+#define TFT_CS_PIN    15  // D8 (GPIO15)
+#define TFT_DC_PIN    0   // D3 (GPIO0)
+#define TFT_RST_PIN   2   // D4 (GPIO2)
+
+// MCP23S17 GPIO Expander Pins
+#define EXPANDER_CS_PIN   4   // D2 (GPIO4)
+#define EXPANDER_IRQ_PIN  5   // D1 (GPIO5) - Optional
+
+// 23LC1024 SRAM Pins
+#define SRAM_CS_PIN    16  // D0 (GPIO16)
+
+// Shared SPI Pins
+#define SPI_SCK_PIN    14  // D5 (GPIO14)
+#define SPI_MOSI_PIN   13  // D7 (GPIO13)
+#define SPI_MISO_PIN   12  // D6 (GPIO12)
+```
+
+### Provided Classes
+
+1. **SPISRAM** - Driver for 23LC1024 SPI SRAM (128 KB)
+   - `read()` / `write()` - Single byte access
+   - `readBuffer()` / `writeBuffer()` - Block operations
+   - `getSize()` - Returns 131072 bytes
+
+2. **MCP23S17** - Driver for GPIO expander
+   - `pinMode()` / `digitalWrite()` / `digitalRead()` - GPIO operations
+   - `pullUp()` - Configure pull-up resistors
+   - 16 GPIO pins (0-15), grouped as Port A (0-7) and Port B (8-15)
+
+3. **TFT_ST7789** - Driver for TFT display
+   - `begin()` - Initialize display
+   - `fillScreen()` - Clear screen
+   - `drawPixel()` - Draw single pixel
+   - `drawRect()` - Draw rectangle
+   - Supports 16-bit color (RGB565)
+
+### Configuration Methods
+
+The example provides **three ways** to configure the hardware.
+
+#### Method 1: Union-Based Config (Recommended)
+Uses `guikit_hw_config_union.h` with a single bank array containing all device types.
+
+#### Method 2: Simple Config
+Uses `guikit_hw_config.h` with separate RAM and SPI configurations.
+
+#### Method 3: Individual Configs
+Uses simple structs for each device type.
+
+### Initialization Functions
+
+```cpp
+initHardwareFromUnionConfig();
+initHardwareFromSimpleConfig();
+initHardwareFromIndividualConfigs();
+```
+
+### Hardware Test Function
+
+Tests all three devices (SRAM, Expander, TFT) and reports success/failure.
+
+### Memory Management
+
+```cpp
+// Framebuffer in external SRAM
+#define FRAMEBUFFER_ADDR 0
+#define FRAMEBUFFER_SIZE (320 * 240 * 4 / 8)  // 4bpp = 37.5 KB
+
+void storeInSRAM(uint32_t addr, const uint8_t* data, size_t length);
+void retrieveFromSRAM(uint32_t addr, uint8_t* buffer, size_t length);
+```
+
+### GPIO Expander Usage
+
+```cpp
+// Setup buttons and LEDs
+void setupExpanderGPIO();
+
+// Read button states (returns bitmask)
+uint16_t readExpanderButtons();
+
+// Set LED states
+void setExpanderLEDs(uint16_t ledStates);
+```
+
+### Memory Usage Analysis
+
+| Component | RAM Used | Storage Location | Notes |
+|-----------|----------|------------------|-------|
+| TFT Framebuffer (4bpp) | 37.5 KB | External SRAM | Fits in 128 KB |
+| Internal RAM Used | ~44 KB | ESP8266 Internal | System + code |
+| Available for Widgets | ~6 KB | Internal | 50-44=6 KB |
+| External SRAM Free | ~90.5 KB | 23LC1024 | 128-37.5=90.5 KB |
+| MCP23S17 GPIO | 16 pins | External | Additional I/O |
+
+**Total usable:** Internal 6KB + External 90.5KB = **~96.5 KB**
+
+**What fits:**
+- Framebuffer in SRAM (37.5 KB)
+- ~20-30 widgets in internal RAM
+- Small text editor (10-20 lines)
+- 2-3 cached images (thumbnails)
+- 16 additional GPIO pins from expander
 
 ---
 
@@ -957,6 +1095,7 @@ config.display.double_buffer = true;
 - **Original Discussion:** `discussion_guikit.txt` - Source of architecture decisions
 - **Docs:** `docs/` - Existing architecture analysis documents
 - **SPI Expander Guide:** `about_port_expander.md` - Comprehensive SPI expander documentation
+- **ESP8266 Example:** `src/examples/esp8266_expander_ram_tft.*` - MCP23S17 + 23LC1024 + TFT
 - **Union Config:** `src/guikit_hw_config_union.h` - Union-based type-safe config
 - **Hardware Config:** `src/guikit_hw_config.h` - Unified simple config (user concept)
 - **Full Config:** `src/guikit_config.h` - Full hardware configuration
@@ -984,6 +1123,7 @@ All requested features have been implemented and committed:
 **Status:** Ready for development and testing
 
 **Latest Additions:**
+- ✅ ESP8266 example (`src/examples/esp8266_expander_ram_tft.*`)
 - ✅ Union-based config (`src/guikit_hw_config_union.h`)
 - ✅ Unified hardware config (`src/guikit_hw_config.h`)
 - ✅ Full hardware config (`src/guikit_config.h`)
