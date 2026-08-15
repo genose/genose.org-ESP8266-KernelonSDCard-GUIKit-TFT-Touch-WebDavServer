@@ -1460,3 +1460,48 @@ html, body {
     padding: 6px 12px;
     font-size: 12px;
 }
+
+/* Source Tabs */
+.source-tabs {
+    display: flex;
+    gap: 4px;
+    margin-right: 8px;
+}
+
+.source-tab {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 12px;
+    background-color: var(--tertiary-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 4px 4px 0 0;
+    color: var(--text-secondary);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.source-tab:hover {
+    background-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+.source-tab.active {
+    background-color: var(--panel-bg);
+    border-bottom-color: var(--panel-bg);
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.source-tab .icon {
+    font-size: 14px;
+}
+
+/* Source Indicator */
+.source-indicator {
+    font-size: 11px;
+    color: var(--accent-color);
+    margin-right: 12px;
+    font-weight: 600;
+}

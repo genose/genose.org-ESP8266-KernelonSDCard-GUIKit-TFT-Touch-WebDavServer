@@ -376,12 +376,21 @@
     <!-- File Chooser Panel (Slide-out) -->
     <div id="file-chooser-panel" class="file-chooser-panel hidden">
         <div class="file-chooser-header">
-            <h2>📁 File Explorer</h2>
+            <div class="source-tabs">
+                <button id="btn-source-webdav" class="source-tab active" onclick="setSource('webdav')" title="WebDAV (ESP8266)">
+                    <span class="icon">🌐</span> WebDAV
+                </button>
+                <button id="btn-source-local" class="source-tab" onclick="setSource('local')" title="Local Computer">
+                    <span class="icon">💻</span> Local
+                </button>
+            </div>
             <div class="file-chooser-controls">
                 <input type="text" id="file-chooser-filter" placeholder="Filter..." oninput="setFileChooserFilter(this.value)">
                 <button class="toolbar-btn" onclick="refreshFileChooser()" title="Refresh">🔄</button>
-                <button class="toolbar-btn" onclick="showNewFolderModal()" title="New Folder">📁</button>
-                <button class="toolbar-btn" onclick="showUploadModal()" title="Upload">📤</button>
+                <button id="file-chooser-new-folder" class="toolbar-btn" onclick="showNewFolderModal()" title="New Folder">📁</button>
+                <button id="file-chooser-upload" class="toolbar-btn" onclick="showUploadModal()" title="Upload">📤</button>
+                <button id="file-chooser-delete" class="toolbar-btn" onclick="deleteSelectedFileChooser()" title="Delete" disabled>🗑️</button>
+                <button id="file-chooser-rename" class="toolbar-btn" onclick="showRenameModal()" title="Rename" disabled>✏️</button>
                 <button class="toolbar-btn close-btn" onclick="toggleFileChooser()" title="Close">✕</button>
             </div>
         </div>
@@ -397,9 +406,11 @@
             </div>
         </div>
         <div class="file-chooser-footer">
-            <span id="file-chooser-path" class="file-path">/</span>
+            <span id="file-chooser-source-indicator" class="source-indicator"></span>
+            <span id="file-chooser-path" class="file-path"></span>
             <div class="file-actions">
                 <button id="file-chooser-open" class="btn-primary" onclick="loadSelectedFileChooser()" disabled>Open</button>
+                <button class="btn-secondary" onclick="downloadCurrentGUI()">Download</button>
             </div>
         </div>
     </div>
