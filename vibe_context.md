@@ -98,6 +98,22 @@ This document captures the complete context of work performed during this Mistra
 **Added Sections:**
 - GUIKit Web Editor - Complete feature list, usage, templates
 - User Management System - Home directory structure, workflow
+
+### 4. Bootloader Kernel Verification
+
+**Files Modified:**
+- `src/boot/guikit_bootloader.h` - Added KernelInfo struct and kernel check function declarations
+- `src/boot/guikit_bootloader.cpp` - Implemented kernel verification logic
+- `src/boot/README.md` - Added kernel check documentation
+
+**Features:**
+- Step 3.5: Kernel Check in boot sequence
+- Checks kernel file existence at multiple paths
+- Validates kernel size (> 1KB)
+- Verifies kernel fits in available RAM
+- Determines appropriate memory strategy for kernel loading
+- Boot fails if kernel not found, too small, or doesn't fit in RAM
+- Uses STOP-at-first-success strategy (External RAM -> SD Swap -> Internal RAM)
 - Project File Structure - `.GUIKIT` convention with examples
 - Updated SD Card Structure - Complete directory tree
 - Quick Start with New Features - 5-step workflow
@@ -1102,7 +1118,8 @@ config.display.double_buffer = true;
 - **Huge Demo RAM Guide:** `about_huge_demo_ram_requirements.md` - Complete RAM consumption analysis
 - **RAM Expansion Guide:** `about_ram_expansion.md` - Comprehensive external RAM documentation
 - **SPI Expander Guide:** `about_port_expander.md` - Comprehensive SPI expander documentation
-- **GitHub:** genose/genose.org-ESP8266-KernelonSDCard-GUIKit-TFT-Touch-WebDavServer
+- **Bootloader Kernel Check:** `src/boot/guikit_bootloader.*` + `src/boot/README.md` - Kernel verification implementation
+- **GitHub:** genose/genose.org-ESP8266-KernelonSDCard-GUIKit-Touch-WebDavServer
 
 ---
 
@@ -1119,6 +1136,8 @@ All requested features have been implemented and committed:
 - ✅ Complete documentation in README.md
 - ✅ `--help` support in all scripts
 - ✅ Build system (build.sh, Makefile, .gitignore)
+- ✅ Kernel verification in bootloader
+- ✅ Boot sequence extended to 7 steps with kernel check (Step 3.5)
 
 **Status:** Ready for development and testing
 
@@ -1131,6 +1150,10 @@ All requested features have been implemented and committed:
 - ✅ SPI Port Expander comprehensive guide (`about_port_expander.md`)
 - ✅ External RAM expansion comprehensive guide (`about_ram_expansion.md`)
 - ✅ Updated session context with all hardware analysis
+- ✅ Kernel verification in bootloader (`src/boot/guikit_bootloader.*`)
+- ✅ Kernel check Step 3.5 in boot sequence
+- ✅ KernelInfo struct for tracking kernel file information
+- ✅ Updated bootloader README.md with kernel check documentation
 
 ---
 
