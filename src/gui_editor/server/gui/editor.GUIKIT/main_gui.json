@@ -1,0 +1,303 @@
+{
+  "version": "1.0",
+  "name": "GUIKit Web Editor",
+  "size": {
+    "width": 320,
+    "height": 240
+  },
+  "background": "#1E1E1E",
+  "theme": "dark",
+  "widgets": [
+    {
+      "id": "toolbar",
+      "type": "container",
+      "x": 0,
+      "y": 0,
+      "width": 320,
+      "height": 28,
+      "background": "#2D2D2D",
+      "border_color": "#3E3E42",
+      "border_width": 1,
+      "children": [
+        {
+          "id": "new_project_btn",
+          "type": "button",
+          "x": 5,
+          "y": 2,
+          "width": 50,
+          "height": 24,
+          "text": "New",
+          "text_size": 11,
+          "text_color": "#FFFFFF",
+          "background": "#0E639C",
+          "border_color": "#1177BB",
+          "border_width": 1,
+          "action": "editor_new_project",
+          "tooltip": "Create new project"
+        },
+        {
+          "id": "open_btn",
+          "type": "button",
+          "x": 60,
+          "y": 2,
+          "width": 50,
+          "height": 24,
+          "text": "Open",
+          "text_size": 11,
+          "text_color": "#FFFFFF",
+          "background": "#0E639C",
+          "border_color": "#1177BB",
+          "border_width": 1,
+          "action": "editor_open_project",
+          "tooltip": "Open existing project"
+        },
+        {
+          "id": "save_btn",
+          "type": "button",
+          "x": 115,
+          "y": 2,
+          "width": 50,
+          "height": 24,
+          "text": "Save",
+          "text_size": 11,
+          "text_color": "#FFFFFF",
+          "background": "#1177BB",
+          "border_color": "#1177BB",
+          "border_width": 1,
+          "action": "editor_save",
+          "tooltip": "Save current file"
+        },
+        {
+          "id": "save_all_btn",
+          "type": "button",
+          "x": 170,
+          "y": 2,
+          "width": 50,
+          "height": 24,
+          "text": "Save All",
+          "text_size": 10,
+          "text_color": "#FFFFFF",
+          "background": "#1177BB",
+          "border_color": "#1177BB",
+          "border_width": 1,
+          "action": "editor_save_all",
+          "tooltip": "Save all open files"
+        },
+        {
+          "id": "webdav_status",
+          "type": "label",
+          "x": 225,
+          "y": 5,
+          "width": 90,
+          "height": 18,
+          "text": "WebDAV: OFF",
+          "text_size": 10,
+          "text_color": "#FF4444",
+          "text_align": "right",
+          "background": "#2D2D2D"
+        }
+      ]
+    },
+    {
+      "id": "main_split",
+      "type": "splitview",
+      "x": 0,
+      "y": 28,
+      "width": 320,
+      "height": 212,
+      "orientation": "horizontal",
+      "split_position": 80,
+      "border_color": "#3E3E42",
+      "border_width": 1,
+      "children": [
+        {
+          "id": "project_browser",
+          "type": "container",
+          "x": 0,
+          "y": 0,
+          "width": 80,
+          "height": 212,
+          "background": "#252526",
+          "scrollable": 3,
+          "children": [
+            {
+              "id": "project_tree",
+              "type": "container",
+              "x": 0,
+              "y": 0,
+              "width": 78,
+              "height": 210,
+              "background": "#252526",
+              "children": []
+            }
+          ]
+        },
+        {
+          "id": "editor_panel",
+          "type": "container",
+          "x": 0,
+          "y": 0,
+          "width": 238,
+          "height": 212,
+          "background": "#1E1E1E",
+          "children": [
+            {
+              "id": "tab_bar",
+              "type": "container",
+              "x": 0,
+              "y": 0,
+              "width": 238,
+              "height": 24,
+              "background": "#2D2D2D",
+              "border_color": "#3E3E42",
+              "border_width": 1,
+              "children": []
+            },
+            {
+              "id": "editor_content",
+              "type": "container",
+              "x": 0,
+              "y": 24,
+              "width": 238,
+              "height": 188,
+              "background": "#1E1E1E",
+              "scrollable": 3,
+              "children": [
+                {
+                  "id": "file_editor",
+                  "type": "textfield",
+                  "x": 5,
+                  "y": 5,
+                  "width": 228,
+                  "height": 178,
+                  "text": "// Select a file to edit",
+                  "text_size": 12,
+                  "text_color": "#D4D4D4",
+                  "background": "#1E1E1E",
+                  "border_color": "#3E3E42",
+                  "border_width": 1,
+                  "multiline": true,
+                  "wrap": true,
+                  "scrollable": 3,
+                  "action": "editor_text_changed",
+                  "long_press_action": "editor_show_context_menu"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "status_bar",
+      "type": "container",
+      "x": 0,
+      "y": 240,
+      "width": 320,
+      "height": 20,
+      "background": "#2D2D2D",
+      "border_color": "#3E3E42",
+      "border_width": 1,
+      "children": [
+        {
+          "id": "status_text",
+          "type": "label",
+          "x": 5,
+          "y": 2,
+          "width": 200,
+          "height": 16,
+          "text": "Ready",
+          "text_size": 11,
+          "text_color": "#D4D4D4",
+          "text_align": "left"
+        },
+        {
+          "id": "cursor_pos",
+          "type": "label",
+          "x": 210,
+          "y": 2,
+          "width": 100,
+          "height": 16,
+          "text": "Line: 1, Col: 1",
+          "text_size": 11,
+          "text_color": "#858585",
+          "text_align": "right"
+        }
+      ]
+    },
+    {
+      "id": "context_menu",
+      "type": "container",
+      "x": 0,
+      "y": 0,
+      "width": 120,
+      "height": 100,
+      "background": "#3E3E42",
+      "border_color": "#1177BB",
+      "border_width": 2,
+      "visible": false,
+      "children": [
+        {
+          "id": "ctx_copy",
+          "type": "button",
+          "x": 5,
+          "y": 5,
+          "width": 110,
+          "height": 20,
+          "text": "Copy",
+          "text_size": 12,
+          "text_color": "#FFFFFF",
+          "background": "#2D2D2D",
+          "border_color": "#3E3E42",
+          "border_width": 1,
+          "action": "editor_copy"
+        },
+        {
+          "id": "ctx_cut",
+          "type": "button",
+          "x": 5,
+          "y": 30,
+          "width": 110,
+          "height": 20,
+          "text": "Cut",
+          "text_size": 12,
+          "text_color": "#FFFFFF",
+          "background": "#2D2D2D",
+          "border_color": "#3E3E42",
+          "border_width": 1,
+          "action": "editor_cut"
+        },
+        {
+          "id": "ctx_paste",
+          "type": "button",
+          "x": 5,
+          "y": 55,
+          "width": 110,
+          "height": 20,
+          "text": "Paste",
+          "text_size": 12,
+          "text_color": "#FFFFFF",
+          "background": "#2D2D2D",
+          "border_color": "#3E3E42",
+          "border_width": 1,
+          "action": "editor_paste"
+        },
+        {
+          "id": "ctx_select_all",
+          "type": "button",
+          "x": 5,
+          "y": 80,
+          "width": 110,
+          "height": 20,
+          "text": "Select All",
+          "text_size": 12,
+          "text_color": "#FFFFFF",
+          "background": "#2D2D2D",
+          "border_color": "#3E3E42",
+          "border_width": 1,
+          "action": "editor_select_all"
+        }
+      ]
+    }
+  ]
+}

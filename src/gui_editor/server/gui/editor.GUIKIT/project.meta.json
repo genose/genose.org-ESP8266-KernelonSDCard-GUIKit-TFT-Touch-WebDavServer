@@ -1,0 +1,25 @@
+{
+  "name": "GUIKit Web Editor",
+  "description": "Web-based GUI editor for ESP8266 GUIKit projects with WebDAV integration",
+  "author": "GUIKit System",
+  "version": "1.0.0",
+  "created": "2026-08-15T00:00:00Z",
+  "modified": "2026-08-15T00:00:00Z",
+  "gui_files": ["main_gui.json"],
+  "scripts": ["scripts/editor.js"],
+  "styles": [],
+  "dependencies": ["webdav.GUIKIT", "users.GUIKIT"],
+  "category": "system",
+  "type": "editor",
+  "features": [
+    "project_management",
+    "json_editor",
+    "script_editor",
+    "webdav_integration",
+    "temp_buffer_support",
+    "contextual_menu"
+  ],
+  "require_auth": true,
+  "min_width": 320,
+  "min_height": 240
+}
