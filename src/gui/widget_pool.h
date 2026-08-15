@@ -20,11 +20,13 @@
 // ============================================================================
 
 typedef enum {
-    WIDGET_TYPE_VIEW,      // Container widget
-    WIDGET_TYPE_BUTTON,    // Clickable button
-    WIDGET_TYPE_LABEL,     // Text display
-    WIDGET_TYPE_SLIDER,    // Slider control
-    WIDGET_TYPE_COUNT      // Number of widget types
+    WIDGET_TYPE_VIEW,          // Container widget
+    WIDGET_TYPE_BUTTON,        // Clickable button
+    WIDGET_TYPE_LABEL,         // Text display
+    WIDGET_TYPE_SLIDER,        // Slider control
+    WIDGET_TYPE_TEXT_EDITOR,   // Full-featured text editor
+    WIDGET_TYPE_MENU,          // Context menu
+    WIDGET_TYPE_COUNT          // Number of widget types
 } WIDGET_TYPE;
 
 
@@ -34,6 +36,7 @@ typedef struct WidgetButton WidgetButton;
 typedef struct WidgetLabel WidgetLabel;
 typedef struct WidgetSlider WidgetSlider;
 typedef struct WidgetView WidgetView;
+typedef struct ContextMenu ContextMenu;
 
 
 // ============================================================================
@@ -244,6 +247,19 @@ uint8_t pool_get_capacity(WIDGET_TYPE type);
  * @return true if widget is from a pool
  */
 bool widget_is_pooled(const Widget* w);
+
+// ============================================================================
+// WIDGET FINDING
+// ============================================================================
+
+/**
+ * @brief Find widget at a specific screen position
+ * 
+ * @param x X coordinate
+ * @param y Y coordinate
+ * @return Pointer to widget at position, or NULL if none
+ */
+Widget* widget_find_at_position(uint16_t x, uint16_t y);
 
 
 // ============================================================================

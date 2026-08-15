@@ -404,6 +404,87 @@ bool widget_is_pooled(const Widget* w) {
 // POOL DEBUG FUNCTIONS
 // ============================================================================
 
+// ============================================================================
+// WIDGET FINDING
+// ============================================================================
+
+/**
+ * @brief Find widget at a specific screen position
+ * 
+ * Searches through all widget pools to find the topmost visible widget at the given position.
+ * 
+ * @param x X coordinate
+ * @param y Y coordinate
+ * @return Pointer to widget at position, or NULL if none
+ */
+Widget* widget_find_at_position(uint16_t x, uint16_t y) {
+    Widget* found = NULL;
+    
+    // Search in reverse order (later widgets are on top)
+    // Check views first (containers might have children)
+    for (int i = MAX_VIEWS - 1; i >= 0; i--) {
+        if (view_pool[i].in_use && view_pool[i].base.base.visible) {
+            Widget* w = &view_pool[i].base.base;
+            if (x >= w->x && x < w->x + w->width && 
+                y >= w->y && y < w->y + w->height) {
+                found = w;
+                break;  // Topmost view found
+            }
+        }
+    }
+    
+    // Check buttons
+    for (int i = MAX_BUTTONS - 1; i >= 0; i--) {
+        if (button_pool[i].in_use && button_pool[i].base.base.visible) {
+            Widget* w = &button_pool[i].base.base;
+            if (x >= w->x && x < w->x + w->width && 
+                y >= w->y && y < w->y + w->height) {
+                found = w;
+                break;  // Topmost button found
+            }
+        }
+    }
+    
+    // Check labels
+    for (int i = MAX_LABELS - 1; i >= 0; i--) {
+        if (label_pool[i].in_use && label_pool[i].base.base.visible) {
+            Widget* w = &label_pool[i].base.base;
+            if (x >= w->x && x < w->x + w->width && 
+                y >= w->y && y < w->y + w->height) {
+                found = w;
+                break;  // Topmost label found
+            }
+        }
+    }
+    
+    // Check sliders
+    for (int i = MAX_SLIDERS - 1; i >= 0; i--) {
+        if (slider_pool[i].in_use && slider_pool[i].base.base.visible) {
+            Widget* w = &slider_pool[i].base.base;
+            if (x >= w->x && x < w->x + w->width && 
+                y >= w->y && y < w->y + w->height) {
+                found = w;
+                break;  // Topmost slider found
+            }
+        }
+    }
+    
+    // Check generic widgets
+    for (int i = MAX_WIDGETS - 1; i >= 0; i--) {
+        if (widget_pool[i].in_use && widget_pool[i].base.visible) {
+            Widget* w = &widget_pool[i].base;
+            if (x >= w->x && x < w->x + w->width && 
+                y >= w->y && y < w->y + w->height) {
+                found = w;
+                break;  // Topmost generic widget found
+            }
+        }
+    }
+    
+    return found;
+}
+
+
 #ifdef DEBUG_POOLS
 
 #include <stdio.h>
