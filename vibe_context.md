@@ -1137,7 +1137,8 @@ All requested features have been implemented and committed:
 - ✅ `--help` support in all scripts
 - ✅ Build system (build.sh, Makefile, .gitignore)
 - ✅ Kernel verification in bootloader
-- ✅ Boot sequence extended to 7 steps with kernel check (Step 3.5)
+- ✅ TFT initialization moved earlier for boot progress messages
+- ✅ Boot sequence: Hardware -> RAM -> SD Card -> TFT -> Kernel -> Memory Config -> Test & Display
 
 **Status:** Ready for development and testing
 
@@ -1151,7 +1152,9 @@ All requested features have been implemented and committed:
 - ✅ External RAM expansion comprehensive guide (`about_ram_expansion.md`)
 - ✅ Updated session context with all hardware analysis
 - ✅ Kernel verification in bootloader (`src/boot/guikit_bootloader.*`)
-- ✅ Kernel check Step 3.5 in boot sequence
+- ✅ TFT initialization moved to Step 4 (after SD Card) for early boot messages
+- ✅ TFT progress messages during boot (kernel check, memory config, strategy test)
+- ✅ tft_display_progress() function for showing progress on TFT
 - ✅ KernelInfo struct for tracking kernel file information
 - ✅ Updated bootloader README.md with kernel check documentation
 
