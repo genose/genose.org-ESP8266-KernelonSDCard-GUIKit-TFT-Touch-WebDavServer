@@ -117,6 +117,237 @@ typedef struct {
 } BootloaderState;
 
 // ============================================================================
+// Kernel Check Functions
+// ============================================================================
+
+/**
+ * Default kernel paths to check
+ */
+static const char* KERNEL_PATHS[] = {
+    "/kernel.bin",
+    "/kernel.gz",
+    "/Kernel.bin",
+    "/Kernel.gz",
+    "/gui/kernel.bin",
+    "/gui/kernel.gz",
+    NULL
+};
+
+/**
+ * Minimum kernel size (should be at least a few KB)
+ */
+#define MIN_KERNEL_SIZE 1024
+
+/**
+ * Kernel version string length
+ */
+#define KERNEL_VERSION_LENGTH 32
+
+/**
+ * Check if kernel file exists and is accessible
+ */
+bool check_kernel_exists(BootloaderState* state, const char* kernel_path) {
+    BootHardwareInfo* hw = &state->hardware;
+    
+    // If no SD card, kernel can't exist on SD card
+    if (!hw->sdcard_detected) {
+        printf("[KERNEL] No SD Card detected, cannot check for kernel\n");
+        return false;
+    }
+    
+    // Mock implementation - in real code, this would check SD card
+    // For demo purposes, we'll simulate that kernel.bin exists
+    if (strcmp(kernel_path, "/kernel.bin") == 0 || 
+        strcmp(kernel_path, "/Kernel.bin") == 0) {
+        printf("[KERNEL] Kernel found at: %s\n", kernel_path);
+        return true;
+    }
+    
+    printf("[KERNEL] Kernel not found at: %s\n", kernel_path);
+    return false;
+}
+
+/**
+ * Get kernel file size
+ */
+uint32_t get_kernel_size(BootloaderState* state, const char* kernel_path) {
+    BootHardwareInfo* hw = &state->hardware;
+    
+    if (!hw->sdcard_detected) {
+        return 0;
+    }
+    
+    // Mock implementation - return a realistic kernel size
+    // In real code, this would read the file size from SD card
+    
+    // Simulate different kernel sizes based on configuration
+    if (hw->sram_detected && hw->sram_size >= 8 * 1024 * 1024) {
+        // Large kernel for systems with lots of external RAM
+        return 2 * 1024 * 1024;  // 2MB
+    } else if (hw->sram_detected) {
+        // Medium kernel for systems with external SRAM
+        return 256 * 1024;  // 256KB
+    } else if (hw->is_esp32) {
+        // ESP32 can have larger kernels in internal RAM
+        return 512 * 1024;  // 512KB
+    } else {
+        // ESP8266 with no external RAM - smaller kernel
+        return 128 * 1024;  // 128KB
+    }
+}
+
+/**
+ * Check if kernel fits in available RAM
+ * 
+ * Uses the memory strategy to determine if the kernel can be loaded
+ */
+bool check_kernel_fits_in_ram(BootloaderState* state, uint32_t kernel_size) {
+    BootHardwareInfo* hw = &state->hardware;
+    bool sram_avail = hw->sram_detected || hw->psram_detected;
+    bool sdcard_avail = hw->sdcard_detected;
+    
+    printf("[KERNEL] Checking if kernel (%lu KB) fits in RAM...\n", kernel_size / 1024);
+    printf("[KERNEL]   Available RAM: %lu KB total\n", state->available_ram / 1024);
+    printf("[KERNEL]   External RAM: %s (%lu KB)\n", 
+           sram_avail ? "Available" : "Not available", 
+           state->available_external_ram / 1024);
+    printf("[KERNEL]   SD Card: %s\n", sdcard_avail ? "Available" : "Not available");
+    
+    // Check strategy 1: External RAM
+    if (sram_avail) {
+        if (kernel_size <= state->available_external_ram &&
+            kernel_size >= state->memory_config.external_ram_min_size) {
+            printf("[KERNEL]   Strategy: External RAM can hold kernel\n");
+            return true;
+        } else {
+            printf("[KERNEL]   Strategy: External RAM cannot hold kernel (%lu KB > %lu KB)\n",
+                   kernel_size / 1024, state->available_external_ram / 1024);
+        }
+    } else {
+        printf("[KERNEL]   Strategy: External RAM not available\n");
+    }
+    
+    // Check strategy 2: SD Card Swap
+    if (sdcard_avail) {
+        if (kernel_size >= state->memory_config.sd_swap_min_size) {
+            printf("[KERNEL]   Strategy: SD Card Swap can stream kernel\n");
+            return true;
+        } else {
+            printf("[KERNEL]   Strategy: Kernel too small for SD swap (%lu KB < %lu KB)\n",
+                   kernel_size / 1024, state->memory_config.sd_swap_min_size / 1024);
+        }
+    } else {
+        printf("[KERNEL]   Strategy: SD Card not available\n");
+    }
+    
+    // Check strategy 3: Internal RAM
+    if (kernel_size <= state->memory_config.internal_ram_max_size) {
+        printf("[KERNEL]   Strategy: Internal RAM can hold kernel\n");
+        return true;
+    } else {
+        printf("[KERNEL]   Strategy: Internal RAM cannot hold kernel (%lu KB > %lu KB)\n",
+               kernel_size / 1024, state->memory_config.internal_ram_max_size / 1024);
+    }
+    
+    printf("[KERNEL]   Result: Kernel does NOT fit in any available RAM\n");
+    return false;
+}
+
+/**
+ * Determine which strategy can load the kernel
+ */
+MemoryStrategyLevel determine_kernel_strategy(BootloaderState* state, uint32_t kernel_size) {
+    BootHardwareInfo* hw = &state->hardware;
+    bool sram_avail = hw->sram_detected || hw->psram_detected;
+    bool sdcard_avail = hw->sdcard_detected;
+    
+    // Strategy 1: External RAM
+    if (sram_avail && kernel_size <= state->available_external_ram &&
+        kernel_size >= state->memory_config.external_ram_min_size) {
+        return MEMORY_STRATEGY_EXTERNAL_RAM;
+    }
+    
+    // Strategy 2: SD Card Swap
+    if (sdcard_avail && kernel_size >= state->memory_config.sd_swap_min_size) {
+        return MEMORY_STRATEGY_SD_SWAP;
+    }
+    
+    // Strategy 3: Internal RAM
+    if (kernel_size <= state->memory_config.internal_ram_max_size) {
+        return MEMORY_STRATEGY_INTERNAL_RAM;
+    }
+    
+    return MEMORY_STRATEGY_FAILED;
+}
+
+/**
+ * Check kernel file and update state
+ */
+bool check_kernel(BootloaderState* state, const char* kernel_path) {
+    KernelInfo* kernel = &state->kernel;
+    
+    // Initialize kernel info
+    kernel->found = false;
+    kernel->path = kernel_path;
+    kernel->size = 0;
+    kernel->version = NULL;
+    kernel->fits_in_ram = false;
+    kernel->required_ram = 0;
+    kernel->strategy = MEMORY_STRATEGY_FAILED;
+    
+    printf("\n");
+    printf("[BOOT] Step: Kernel Check\n");
+    printf("[KERNEL] Checking for kernel at: %s\n", kernel_path);
+    
+    // Check if kernel exists
+    if (!check_kernel_exists(state, kernel_path)) {
+        state->current_state = BOOT_STATE_ERROR;
+        state->error_message = "Kernel file not found";
+        printf("[KERNEL] ERROR: Kernel not found\n");
+        return false;
+    }
+    
+    kernel->found = true;
+    
+    // Get kernel size
+    kernel->size = get_kernel_size(state, kernel_path);
+    printf("[KERNEL] Kernel size: %lu KB (%lu bytes)\n", 
+           kernel->size / 1024, kernel->size);
+    
+    if (kernel->size < MIN_KERNEL_SIZE) {
+        state->current_state = BOOT_STATE_ERROR;
+        state->error_message = "Kernel file too small";
+        printf("[KERNEL] ERROR: Kernel file too small (%lu bytes < %d bytes)\n", 
+               kernel->size, MIN_KERNEL_SIZE);
+        return false;
+    }
+    
+    // Check if kernel fits in RAM
+    kernel->fits_in_ram = check_kernel_fits_in_ram(state, kernel->size);
+    
+    // Determine which strategy can load it
+    kernel->strategy = determine_kernel_strategy(state, kernel->size);
+    
+    // Set required RAM
+    kernel->required_ram = kernel->size;
+    
+    // Set version (mock)
+    kernel->version = "1.0.0";
+    
+    printf("[KERNEL] Kernel check complete\n");
+    printf("[KERNEL]   Found: %s\n", kernel->found ? "Yes" : "No");
+    printf("[KERNEL]   Size: %lu KB\n", kernel->size / 1024);
+    printf("[KERNEL]   Fits in RAM: %s\n", kernel->fits_in_ram ? "Yes" : "No");
+    printf("[KERNEL]   Strategy: %s\n",
+           kernel->strategy == MEMORY_STRATEGY_EXTERNAL_RAM ? "External RAM" :
+           kernel->strategy == MEMORY_STRATEGY_SD_SWAP ? "SD Card Swap" :
+           kernel->strategy == MEMORY_STRATEGY_INTERNAL_RAM ? "Internal RAM" : "FAILED");
+    
+    return kernel->found && kernel->fits_in_ram && 
+           kernel->strategy != MEMORY_STRATEGY_FAILED;
+}
+
+// ============================================================================
 // Hardware Detection Functions (Mock implementations - replace with actual hardware code)
 // ============================================================================
 
@@ -739,9 +970,71 @@ bool guikit_bootloader_run(BootloaderState* state) {
     printf("\n");
     
     // ---------------------------------------------------------------------------
+    // Step 3.5: Kernel Check (if SD Card is available)
+    // ---------------------------------------------------------------------------
+    if (state->hardware.sdcard_detected) {
+        printf("[BOOT] Step 3.5/6: Kernel Check\n");
+        state->current_state = BOOT_STATE_KERNEL_CHECK;
+        
+        // Try all kernel paths until one is found
+        bool kernel_found = false;
+        for (int i = 0; KERNEL_PATHS[i] != NULL; i++) {
+            if (check_kernel(state, KERNEL_PATHS[i])) {
+                kernel_found = true;
+                break;
+            }
+        }
+        
+        if (!kernel_found) {
+            // Try default path
+            kernel_found = check_kernel(state, "/kernel.bin");
+        }
+        
+        if (!kernel_found) {
+            state->current_state = BOOT_STATE_ERROR;
+            state->error_message = "No valid kernel found on SD card";
+            printf("[BOOT] ERROR: No valid kernel found on SD card\n");
+            return false;
+        }
+        
+        printf("[BOOT] Kernel check complete\n");
+        printf("  Kernel: %lu KB at %s\n", 
+               state->kernel.size / 1024, state->kernel.path);
+        printf("  Fits in RAM: %s\n", state->kernel.fits_in_ram ? "Yes" : "No");
+        printf("  Load Strategy: %s\n",
+               state->kernel.strategy == MEMORY_STRATEGY_EXTERNAL_RAM ? "External RAM" :
+               state->kernel.strategy == MEMORY_STRATEGY_SD_SWAP ? "SD Card Swap" :
+               state->kernel.strategy == MEMORY_STRATEGY_INTERNAL_RAM ? "Internal RAM" : "FAILED");
+        printf("\n");
+        
+        // If kernel doesn't fit in RAM, fail
+        if (!state->kernel.fits_in_ram) {
+            state->current_state = BOOT_STATE_ERROR;
+            state->error_message = "Kernel too large for available RAM";
+            printf("[BOOT] ERROR: %s\n", state->error_message);
+            return false;
+        }
+        
+        // If no valid strategy, fail
+        if (state->kernel.strategy == MEMORY_STRATEGY_FAILED) {
+            state->current_state = BOOT_STATE_ERROR;
+            state->error_message = "No valid memory strategy for kernel";
+            printf("[BOOT] ERROR: %s\n", state->error_message);
+            return false;
+        }
+    } else {
+        // No SD Card - set kernel info accordingly
+        state->kernel.found = false;
+        state->kernel.size = 0;
+        state->kernel.fits_in_ram = false;
+        state->kernel.strategy = MEMORY_STRATEGY_FAILED;
+        printf("[BOOT] No SD Card - skipping kernel check (kernel must be in Flash)\n\n");
+    }
+    
+    // ---------------------------------------------------------------------------
     // Step 4: TFT Initialization
     // ---------------------------------------------------------------------------
-    printf("[BOOT] Step 4/6: TFT Initialization\n");
+    printf("[BOOT] Step 4/7: TFT Initialization\n");
     state->current_state = BOOT_STATE_TFT_INITIALIZATION;
     
     if (state->hardware.tft_detected) {
@@ -755,7 +1048,7 @@ bool guikit_bootloader_run(BootloaderState* state) {
     // ---------------------------------------------------------------------------
     // Step 5: Memory Strategy Configuration
     // ---------------------------------------------------------------------------
-    printf("[BOOT] Step 5/6: Memory Strategy Configuration\n");
+    printf("[BOOT] Step 5/7: Memory Strategy Configuration\n");
     state->current_state = BOOT_STATE_MEMORY_STRATEGY_CONFIG;
     
     // Configure memory strategy based on detected hardware
@@ -779,7 +1072,7 @@ bool guikit_bootloader_run(BootloaderState* state) {
     // ---------------------------------------------------------------------------
     // Step 6: Memory Strategy Test and Apply
     // ---------------------------------------------------------------------------
-    printf("[BOOT] Step 6/6: Memory Strategy Test and Apply\n");
+    printf("[BOOT] Step 6/7: Memory Strategy Test and Apply\n");
     state->current_state = BOOT_STATE_MEMORY_STRATEGY_APPLY;
     
     // Test memory strategy with different GUI sizes
@@ -895,6 +1188,26 @@ bool guikit_bootloader_run(BootloaderState* state) {
     printf("  Touch: %s\n", state->hardware.touch_detected ? "Available" : "Not available");
     printf("  SPI Expanders: %d (%d GPIO)\n",
            state->hardware.spi_expander_count, state->hardware.total_expander_gpio);
+    
+    // Kernel information
+    if (state->kernel.found) {
+        printf("\n");
+        printf("Kernel:\n");
+        printf("  Found: Yes\n");
+        printf("  Path: %s\n", state->kernel.path);
+        printf("  Size: %lu KB\n", state->kernel.size / 1024);
+        printf("  Version: %s\n", state->kernel.version ? state->kernel.version : "Unknown");
+        printf("  Fits in RAM: %s\n", state->kernel.fits_in_ram ? "Yes" : "No");
+        printf("  Load Strategy: %s\n",
+               state->kernel.strategy == MEMORY_STRATEGY_EXTERNAL_RAM ? "External RAM" :
+               state->kernel.strategy == MEMORY_STRATEGY_SD_SWAP ? "SD Card Swap" :
+               state->kernel.strategy == MEMORY_STRATEGY_INTERNAL_RAM ? "Internal RAM" : "FAILED");
+    } else {
+        printf("\n");
+        printf("Kernel:\n");
+        printf("  Found: No (must be in Flash)\n");
+    }
+    
     printf("\n");
     printf("Memory Strategy:\n");
     printf("  Selected: %s\n",

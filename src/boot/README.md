@@ -33,6 +33,12 @@ Boot Start
     ↓
 3. SD Card Initialization
     ↓
+3.5. Kernel Check
+   ├── Check kernel file exists on SD Card
+   ├── Verify kernel size is valid (> 1KB)
+   ├── Check kernel fits in available RAM
+   └── Determine kernel load strategy
+    ↓
 4. TFT Initialization
     ↓
 5. Memory Strategy Configuration
@@ -49,6 +55,51 @@ Boot Start
     ↓
 Boot Complete
 ```
+
+## Kernel Check
+
+After SD Card initialization, the bootloader verifies that a valid kernel file exists and can be loaded into memory. This is Step 3.5 in the boot sequence.
+
+### Kernel Check Process
+
+The bootloader performs the following checks:
+
+1. **File Existence**: Checks for kernel files at multiple standard paths:
+   - `/kernel.bin` (primary)
+   - `/kernel.gz`
+   - `/Kernel.bin`
+   - `/Kernel.gz`
+   - `/gui/kernel.bin`
+   - `/gui/kernel.gz`
+
+2. **Size Validation**: Ensures the kernel file is at least 1KB in size (configurable via `MIN_KERNEL_SIZE`)
+
+3. **RAM Fitness Check**: Verifies the kernel can fit in available RAM using the memory strategy:
+   - Try External RAM first (if available)
+   - Try SD Card Swap (if SD card available)
+   - Try Internal RAM
+   - If all fail, boot fails
+
+4. **Strategy Determination**: Selects the appropriate memory strategy for loading the kernel
+
+### Kernel Check Failure Modes
+
+The bootloader will fail and stop with an error if:
+- No kernel file is found on the SD card
+- The kernel file is too small (< 1KB)
+- The kernel doesn't fit in any available RAM
+- No valid memory strategy can load the kernel
+
+### Kernel Information in State
+
+The `BootloaderState` structure includes a `kernel` field with the following information:
+- `found`: Whether a kernel was found
+- `path`: Path to the kernel file
+- `size`: Size of kernel in bytes
+- `version`: Kernel version string
+- `fits_in_ram`: Whether kernel fits in available RAM
+- `required_ram`: RAM required for kernel
+- `strategy`: Selected memory strategy for loading
 
 ## Memory Strategy Configuration Logic
 
@@ -250,17 +301,32 @@ GUIKit Bootloader Starting
 [BOOT] RAM initialization complete
   Available RAM: 208 KB (Internal: ~80 KB, External: 128 KB)
 
-[BOOT] Step 3/6: SD Card Initialization
+[BOOT] Step 3/7: SD Card Initialization
 [SD] SD Card initialized at CS 5
 [BOOT] SD Card initialization complete
   SD Card: Ready
 
-[BOOT] Step 4/6: TFT Initialization
+[BOOT] Step 3.5/7: Kernel Check
+[KERNEL] Checking for kernel at: /kernel.bin
+[KERNEL] Kernel found at: /kernel.bin
+[KERNEL] Kernel size: 128 KB (131072 bytes)
+[KERNEL] Checking if kernel (128 KB) fits in RAM...
+[KERNEL]   Available RAM: 208 KB total
+[KERNEL]   External RAM: Available (128 KB)
+[KERNEL]   SD Card: Available
+[KERNEL]   Strategy: External RAM can hold kernel
+[KERNEL]   Result: Kernel fits in RAM
+[KERNEL] Kernel check complete
+  Kernel: 128 KB at /kernel.bin
+  Fits in RAM: Yes
+  Load Strategy: External RAM
+
+[BOOT] Step 4/7: TFT Initialization
 [TFT] TFT initialized: 320x240 at CS 15
 [BOOT] TFT initialization complete
   TFT: Ready
 
-[BOOT] Step 5/6: Memory Strategy Configuration
+[BOOT] Step 5/7: Memory Strategy Configuration
 [BOOT] Memory strategy configured
   Strategy thresholds:
     External RAM min: 4 KB
@@ -272,7 +338,7 @@ GUIKit Bootloader Starting
     Check Memory: Yes
     Display Errors: Yes
 
-[BOOT] Step 6/6: Memory Strategy Test and Apply
+[BOOT] Step 6/7: Memory Strategy Test and Apply
 
 [MEMORY STRATEGY] Testing with detected hardware:
   External RAM: Yes (128 KB)
@@ -303,6 +369,14 @@ Boot Summary:
   Touch: Available
   SPI Expanders: 0 (0 GPIO)
 
+Kernel:
+  Found: Yes
+  Path: /kernel.bin
+  Size: 128 KB
+  Version: 1.0.0
+  Fits in RAM: Yes
+  Load Strategy: External RAM
+
 Memory Strategy:
   Selected: Internal RAM
   Thresholds:
@@ -318,7 +392,7 @@ Memory Strategy:
 GUIKit Bootloader Starting
 ========================================
 
-[BOOT] Step 1/6: Hardware Detection
+[BOOT] Step 1/7: Hardware Detection
 [SPI] Initializing: SCK=14, MOSI=13, MISO=12, Speed=20 MHz
 [SPI] SD Card detected at CS 5
 [SPI] TFT detected at CS 15: 320x240
@@ -327,21 +401,38 @@ GUIKit Bootloader Starting
   SRAM: No, PSRAM: No, SD Card: Yes, TFT: Yes, Touch: Yes
   SPI Expanders: 0, GPIO: 0
 
-[BOOT] Step 2/6: RAM Initialization
+[BOOT] Step 2/7: RAM Initialization
 [BOOT] RAM initialization complete
   Available RAM: 80 KB (Internal: ~80 KB, External: 0 KB)
 
-[BOOT] Step 3/6: SD Card Initialization
+[BOOT] Step 3/7: SD Card Initialization
 [SD] SD Card initialized at CS 5
 [BOOT] SD Card initialization complete
   SD Card: Ready
 
-[BOOT] Step 4/6: TFT Initialization
+[BOOT] Step 3.5/7: Kernel Check
+[KERNEL] Checking for kernel at: /kernel.bin
+[KERNEL] Kernel found at: /kernel.bin
+[KERNEL] Kernel size: 64 KB (65536 bytes)
+[KERNEL] Checking if kernel (64 KB) fits in RAM...
+[KERNEL]   Available RAM: 80 KB total
+[KERNEL]   External RAM: Not available
+[KERNEL]   SD Card: Available
+[KERNEL]   Strategy: External RAM not available
+[KERNEL]   Strategy: SD Card Swap can stream kernel
+[KERNEL]   Strategy: Internal RAM can hold kernel
+[KERNEL]   Result: Kernel fits in RAM
+[KERNEL] Kernel check complete
+  Kernel: 64 KB at /kernel.bin
+  Fits in RAM: Yes
+  Load Strategy: Internal RAM
+
+[BOOT] Step 4/7: TFT Initialization
 [TFT] TFT initialized: 320x240 at CS 15
 [BOOT] TFT initialization complete
   TFT: Ready
 
-[BOOT] Step 5/6: Memory Strategy Configuration
+[BOOT] Step 5/7: Memory Strategy Configuration
 [BOOT] Memory strategy configured
   Strategy thresholds:
     External RAM min: 4294967295 KB
@@ -353,7 +444,7 @@ GUIKit Bootloader Starting
     Check Memory: Yes
     Display Errors: Yes
 
-[BOOT] Step 6/6: Memory Strategy Test and Apply
+[BOOT] Step 6/7: Memory Strategy Test and Apply
 
 [MEMORY STRATEGY] Testing with detected hardware:
   External RAM: No (0 KB)
@@ -375,6 +466,29 @@ GUIKit Bootloader Starting
 ========================================
 GUIKit Bootloader Complete
 ========================================
+
+Boot Summary:
+  Platform: ESP8266
+  RAM: 80 KB total (80 KB internal, 0 KB external)
+  SD Card: Available
+  TFT: Available (320x240)
+  Touch: Available
+  SPI Expanders: 0 (0 GPIO)
+
+Kernel:
+  Found: Yes
+  Path: /kernel.bin
+  Size: 64 KB
+  Version: 1.0.0
+  Fits in RAM: Yes
+  Load Strategy: Internal RAM
+
+Memory Strategy:
+  Selected: Internal RAM
+  Thresholds:
+    External RAM: > 4294967295 KB
+    SD Swap: > 8 KB
+    Internal RAM: < 64 KB
 ```
 
 ### ESP32 with PSRAM (8MB)
@@ -384,7 +498,7 @@ GUIKit Bootloader Complete
 GUIKit Bootloader Starting
 ========================================
 
-[BOOT] Step 1/6: Hardware Detection
+[BOOT] Step 1/7: Hardware Detection
 [SPI] Initializing: SCK=18, MOSI=23, MISO=19, Speed=40 MHz
 [SPI] PSRAM detected at CS 255: 8192 KB
 [SPI] SD Card detected at CS 22
@@ -394,22 +508,37 @@ GUIKit Bootloader Starting
   SRAM: No, PSRAM: Yes, SD Card: Yes, TFT: Yes, Touch: Yes
   SPI Expanders: 0, GPIO: 0
 
-[BOOT] Step 2/6: RAM Initialization
+[BOOT] Step 2/7: RAM Initialization
 [RAM] PSRAM initialized: 8192 KB
 [BOOT] RAM initialization complete
   Available RAM: 8512 KB (Internal: ~320 KB, External: 8192 KB)
 
-[BOOT] Step 3/6: SD Card Initialization
+[BOOT] Step 3/7: SD Card Initialization
 [SD] SD Card initialized at CS 22
 [BOOT] SD Card initialization complete
   SD Card: Ready
 
-[BOOT] Step 4/6: TFT Initialization
+[BOOT] Step 3.5/7: Kernel Check
+[KERNEL] Checking for kernel at: /kernel.bin
+[KERNEL] Kernel found at: /kernel.bin
+[KERNEL] Kernel size: 512 KB (524288 bytes)
+[KERNEL] Checking if kernel (512 KB) fits in RAM...
+[KERNEL]   Available RAM: 8512 KB total
+[KERNEL]   External RAM: Available (8192 KB)
+[KERNEL]   SD Card: Available
+[KERNEL]   Strategy: External RAM can hold kernel
+[KERNEL]   Result: Kernel fits in RAM
+[KERNEL] Kernel check complete
+  Kernel: 512 KB at /kernel.bin
+  Fits in RAM: Yes
+  Load Strategy: External RAM
+
+[BOOT] Step 4/7: TFT Initialization
 [TFT] TFT initialized: 320x240 at CS 5
 [BOOT] TFT initialization complete
   TFT: Ready
 
-[BOOT] Step 5/6: Memory Strategy Configuration
+[BOOT] Step 5/7: Memory Strategy Configuration
 [BOOT] Memory strategy configured
   Strategy thresholds:
     External RAM min: 16 KB
@@ -421,7 +550,7 @@ GUIKit Bootloader Starting
     Check Memory: Yes
     Display Errors: Yes
 
-[BOOT] Step 6/6: Memory Strategy Test and Apply
+[BOOT] Step 6/7: Memory Strategy Test and Apply
 
 [MEMORY STRATEGY] Testing with detected hardware:
   External RAM: Yes (8192 KB)
@@ -443,6 +572,29 @@ GUIKit Bootloader Starting
 ========================================
 GUIKit Bootloader Complete
 ========================================
+
+Boot Summary:
+  Platform: ESP32
+  RAM: 8512 KB total (320 KB internal, 8192 KB external)
+  SD Card: Available
+  TFT: Available (320x240)
+  Touch: Available
+  SPI Expanders: 0 (0 GPIO)
+
+Kernel:
+  Found: Yes
+  Path: /kernel.bin
+  Size: 512 KB
+  Version: 1.0.0
+  Fits in RAM: Yes
+  Load Strategy: External RAM
+
+Memory Strategy:
+  Selected: Internal RAM
+  Thresholds:
+    External RAM: > 16 KB
+    SD Swap: > 32 KB
+    Internal RAM: < 256 KB
 ```
 
 ## TFT Display Output
@@ -458,6 +610,10 @@ When a TFT display is available, the bootloader shows a visual summary:
 |   SD Card: Yes                       |
 |   TFT: 320x240                       |
 |   Touch: Yes                         |
+|                                      |
+| Kernel:                              |
+|   Found: Yes, 128 KB                 |
+|   Strategy: External RAM             |
 |                                      |
 | Memory Strategy:                     |
 |   Strategy: External RAM             |

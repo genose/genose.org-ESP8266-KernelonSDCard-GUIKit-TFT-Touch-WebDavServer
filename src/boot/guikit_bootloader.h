@@ -60,6 +60,23 @@ typedef struct {
 } BootHardwareInfo;
 
 // ============================================================================
+// Kernel Check Structures
+// ============================================================================
+
+/**
+ * Kernel information
+ */
+typedef struct {
+    bool found;                    ///< True if kernel file is found
+    const char* path;              ///< Path to kernel file
+    uint32_t size;                 ///< Size of kernel in bytes
+    const char* version;           ///< Kernel version string
+    bool fits_in_ram;              ///< True if kernel fits in available RAM
+    uint32_t required_ram;          ///< RAM required for kernel
+    MemoryStrategyLevel strategy;  ///< Strategy that can load this kernel
+} KernelInfo;
+
+// ============================================================================
 // Bootloader State
 // ============================================================================
 
@@ -73,6 +90,7 @@ typedef enum {
     BOOT_STATE_SPI_DETECTION,        ///< Detecting SPI devices
     BOOT_STATE_SDCARD_DETECTION,     ///< Detecting SD Card
     BOOT_STATE_TFT_INITIALIZATION,   ///< Initializing TFT
+    BOOT_STATE_KERNEL_CHECK,         ///< Checking kernel file
     BOOT_STATE_MEMORY_STRATEGY_CONFIG,  ///< Configuring memory strategy
     BOOT_STATE_MEMORY_STRATEGY_APPLY,    ///< Applying memory strategy
     BOOT_STATE_DISPLAY_RESULTS,      ///< Displaying results
@@ -90,6 +108,9 @@ typedef struct {
     
     // Hardware detection results
     BootHardwareInfo hardware;        ///< Detected hardware information
+    
+    // Kernel check results
+    KernelInfo kernel;                ///< Kernel file information
     
     // Memory strategy results
     MemoryStrategyLevel selected_strategy;  ///< Selected memory strategy
@@ -191,6 +212,65 @@ bool init_tft(BootloaderState* state);
  * @param state Bootloader state
  */
 void test_memory_strategy(BootloaderState* state);
+
+// ============================================================================
+// Kernel Check Functions
+// ============================================================================
+
+/**
+ * @brief Check if kernel file exists and is accessible
+ * 
+ * @param state Bootloader state
+ * @param kernel_path Path to kernel file (e.g., "/kernel.bin")
+ * @return true if kernel is found and accessible
+ */
+bool check_kernel_exists(BootloaderState* state, const char* kernel_path);
+
+/**
+ * @brief Get kernel file size
+ * 
+ * @param state Bootloader state
+ * @param kernel_path Path to kernel file
+ * @return Kernel size in bytes, or 0 if not found
+ */
+uint32_t get_kernel_size(BootloaderState* state, const char* kernel_path);
+
+/**
+ * @brief Check if kernel fits in available RAM
+ * 
+ * This function checks if the kernel can be loaded into the available RAM
+ * using the current memory strategy configuration.
+ * 
+ * @param state Bootloader state with RAM info
+ * @param kernel_size Size of kernel in bytes
+ * @return true if kernel fits in available RAM
+ */
+bool check_kernel_fits_in_ram(BootloaderState* state, uint32_t kernel_size);
+
+/**
+ * @brief Determine which strategy can load the kernel
+ * 
+ * @param state Bootloader state with hardware and memory config
+ * @param kernel_size Size of kernel in bytes
+ * @return MemoryStrategyLevel that can load the kernel, or FAILED
+ */
+MemoryStrategyLevel determine_kernel_strategy(BootloaderState* state, uint32_t kernel_size);
+
+/**
+ * @brief Check kernel file and update state
+ * 
+ * This function:
+ * 1. Checks if kernel file exists
+ * 2. Gets kernel size
+ * 3. Checks if kernel fits in available RAM
+ * 4. Determines which strategy can load it
+ * 5. Updates state->kernel with results
+ * 
+ * @param state Bootloader state
+ * @param kernel_path Path to kernel file
+ * @return true if kernel is valid and can be loaded
+ */
+bool check_kernel(BootloaderState* state, const char* kernel_path);
 
 // ============================================================================
 // Hardware Detection Functions
