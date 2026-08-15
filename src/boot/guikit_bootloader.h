@@ -20,6 +20,40 @@ class SDCard;
 class TFT_ST7789;
 
 // ============================================================================
+// SPI Device Enumeration
+// ============================================================================
+
+/**
+ * Enumeration of SPI device types
+ */
+typedef enum {
+    SPI_DEVICE_NONE = 0,
+    SPI_DEVICE_SRAM,
+    SPI_DEVICE_PSRAM,
+    SPI_DEVICE_SD_CARD,
+    SPI_DEVICE_TFT,
+    SPI_DEVICE_TOUCH,
+    SPI_DEVICE_EXPANDER,
+    SPI_DEVICE_FRAM,
+    SPI_DEVICE_EEPROM,
+    SPI_DEVICE_FLASH,
+    SPI_DEVICE_UNKNOWN
+} BootSpiDeviceType;
+
+/**
+ * Information about a single detected SPI device
+ */
+typedef struct {
+    BootSpiDeviceType type;       ///< Type of device
+    uint8_t cs_pin;               ///< CS pin for this device
+    uint32_t size;                ///< Size in bytes (for memory devices)
+    const char* type_name;        ///< Human-readable type name
+    uint16_t width;               ///< Width (for TFT)
+    uint16_t height;              ///< Height (for TFT)
+    guikit_expander_type_t expander_type;  ///< Expander type (if applicable)
+} BootSpiDeviceInfo;
+
+// ============================================================================
 // Hardware Detection Structures
 // ============================================================================
 
@@ -56,6 +90,10 @@ typedef struct {
     
     // Network
     bool webdav_available;        ///< True if WebDAV is available
+    
+    // SPI Device Enumeration
+    BootSpiDeviceInfo spi_devices[16];  ///< All detected SPI devices
+    uint8_t spi_device_count;     ///< Number of detected SPI devices
     
 } BootHardwareInfo;
 
@@ -181,6 +219,33 @@ void configure_memory_strategy(BootloaderState* state);
  * @param state Bootloader state to populate with hardware info
  */
 void detect_spi_devices(BootloaderState* state);
+
+/**
+ * @brief Enumerate all detected SPI devices
+ *
+ * Returns an array of all SPI devices found during detection.
+ * Each device includes type, CS pin, size (for memory), and other details.
+ *
+ * @param state Bootloader state with populated hardware info
+ * @return Array of detected SPI devices
+ */
+const BootSpiDeviceInfo* enumerate_spi_devices(BootloaderState* state);
+
+/**
+ * @brief Get the number of detected SPI devices
+ *
+ * @param state Bootloader state
+ * @return Number of detected SPI devices
+ */
+uint8_t get_spi_device_count(BootloaderState* state);
+
+/**
+ * @brief Get SPI device type as string
+ *
+ * @param type SPI device type enum
+ * @return Human-readable string for the device type
+ */
+const char* spi_device_type_to_string(BootSpiDeviceType type);
 
 /**
  * @brief Initialize RAM (internal and external)

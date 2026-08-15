@@ -79,6 +79,21 @@ typedef enum {
     GUIKIT_EXPANDER_MCP23008
 } guikit_expander_type_t;
 
+// SPI Device Type Enumeration
+typedef enum {
+    GUIKIT_SPI_DEVICE_NONE = 0,
+    GUIKIT_SPI_DEVICE_SRAM,        // SPI SRAM (23LC1024, etc.)
+    GUIKIT_SPI_DEVICE_PSRAM,       // PSRAM
+    GUIKIT_SPI_DEVICE_SD_CARD,     // SD Card
+    GUIKIT_SPI_DEVICE_TFT,        // TFT Display
+    GUIKIT_SPI_DEVICE_TOUCH,      // Touch Controller
+    GUIKIT_SPI_DEVICE_EXPANDER,   // GPIO Expander
+    GUIKIT_SPI_DEVICE_FRAM,       // FRAM
+    GUIKIT_SPI_DEVICE_EEPROM,      // SPI EEPROM
+    GUIKIT_SPI_DEVICE_FLASH,       // SPI Flash
+    GUIKIT_SPI_DEVICE_UNKNOWN     // Unknown device
+} guikit_spi_device_type_t;
+
 // Single SPI device/expander entry
 typedef struct {
     guikit_spi_type_t type;

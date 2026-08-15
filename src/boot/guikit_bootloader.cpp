@@ -42,6 +42,31 @@ class TFT_ST7789;
 // Hardware Detection Structures
 // ============================================================================
 
+// SPI Device Enumeration
+typedef enum {
+    SPI_DEVICE_NONE = 0,
+    SPI_DEVICE_SRAM,
+    SPI_DEVICE_PSRAM,
+    SPI_DEVICE_SD_CARD,
+    SPI_DEVICE_TFT,
+    SPI_DEVICE_TOUCH,
+    SPI_DEVICE_EXPANDER,
+    SPI_DEVICE_FRAM,
+    SPI_DEVICE_EEPROM,
+    SPI_DEVICE_FLASH,
+    SPI_DEVICE_UNKNOWN
+} BootSpiDeviceType;
+
+typedef struct {
+    BootSpiDeviceType type;
+    uint8_t cs_pin;
+    uint32_t size;
+    const char* type_name;
+    uint16_t width;
+    uint16_t height;
+    guikit_expander_type_t expander_type;
+} BootSpiDeviceInfo;
+
 typedef struct {
     bool sram_detected;
     uint32_t sram_size;
@@ -66,6 +91,10 @@ typedef struct {
     uint16_t total_expander_gpio;
     
     bool webdav_available;
+    
+    // SPI Device Enumeration
+    BootSpiDeviceInfo spi_devices[16];
+    uint8_t spi_device_count;
     
 } BootHardwareInfo;
 
@@ -616,11 +645,52 @@ static bool spi_init(uint8_t sck_pin, uint8_t mosi_pin, uint8_t miso_pin, uint8_
 }
 
 /**
+ * Get SPI device type as string
+ */
+const char* spi_device_type_to_string(BootSpiDeviceType type) {
+    switch (type) {
+        case SPI_DEVICE_NONE:     return "None";
+        case SPI_DEVICE_SRAM:     return "SRAM";
+        case SPI_DEVICE_PSRAM:    return "PSRAM";
+        case SPI_DEVICE_SD_CARD:  return "SD Card";
+        case SPI_DEVICE_TFT:       return "TFT";
+        case SPI_DEVICE_TOUCH:    return "Touch";
+        case SPI_DEVICE_EXPANDER: return "Expander";
+        case SPI_DEVICE_FRAM:     return "FRAM";
+        case SPI_DEVICE_EEPROM:   return "EEPROM";
+        case SPI_DEVICE_FLASH:    return "Flash";
+        case SPI_DEVICE_UNKNOWN:  return "Unknown";
+        default:                  return "Unknown";
+    }
+}
+
+/**
+ * Get the number of detected SPI devices
+ */
+uint8_t get_spi_device_count(BootloaderState* state) {
+    return state->hardware.spi_device_count;
+}
+
+/**
+ * Enumerate all detected SPI devices
+ */
+const BootSpiDeviceInfo* enumerate_spi_devices(BootloaderState* state) {
+    return state->hardware.spi_devices;
+}
+
+// ============================================================================
+// Hardware Detection and Initialization
+// ============================================================================
+
+/**
  * Detect all SPI devices and populate hardware info
  */
 static void detect_spi_devices(BootloaderState* state) {
     guikit_spi_config_t* spi_cfg = &state->config.spi;
     BootHardwareInfo* hw = &state->hardware;
+    
+    // Initialize SPI device enumeration
+    hw->spi_device_count = 0;
     
     // Initialize SPI bus
     if (!spi_init(spi_cfg->sck_pin, spi_cfg->mosi_pin, spi_cfg->miso_pin, spi_cfg->max_speed_mhz)) {
@@ -628,6 +698,9 @@ static void detect_spi_devices(BootloaderState* state) {
         state->error_message = "Failed to initialize SPI bus";
         return;
     }
+    
+    printf("[SPI] Enumerating devices on bus: SCK=%d, MOSI=%d, MISO=%d, Speed=%d MHz\n",
+           spi_cfg->sck_pin, spi_cfg->mosi_pin, spi_cfg->miso_pin, spi_cfg->max_speed_mhz);
     
     // Detect each SPI device in the configuration
     for (int i = 0; i < spi_cfg->bank_count; i++) {
@@ -643,6 +716,14 @@ static void detect_spi_devices(BootloaderState* state) {
             hw->sram_size = sram_size;
             hw->sram_cs_pin = bank->cs_pin;
             hw->sram_type = sram_type;
+            
+            // Add to SPI device enumeration
+            BootSpiDeviceInfo* device = &hw->spi_devices[hw->spi_device_count++];
+            device->type = SPI_DEVICE_SRAM;
+            device->cs_pin = bank->cs_pin;
+            device->size = sram_size;
+            device->type_name = sram_type;
+            
             printf("[SPI] SRAM detected at CS %d: %s, %lu KB\n", bank->cs_pin, sram_type, sram_size / 1024);
             continue;  // This bank is SRAM, skip other checks
         }
@@ -652,6 +733,14 @@ static void detect_spi_devices(BootloaderState* state) {
         if (detect_spi_psram(bank->cs_pin, &psram_size)) {
             hw->psram_detected = true;
             hw->psram_size = psram_size;
+            
+            // Add to SPI device enumeration
+            BootSpiDeviceInfo* device = &hw->spi_devices[hw->spi_device_count++];
+            device->type = SPI_DEVICE_PSRAM;
+            device->cs_pin = bank->cs_pin;
+            device->size = psram_size;
+            device->type_name = "PSRAM";
+            
             printf("[SPI] PSRAM detected at CS %d: %lu KB\n", bank->cs_pin, psram_size / 1024);
             continue;  // This bank is PSRAM, skip other checks
         }
@@ -660,6 +749,13 @@ static void detect_spi_devices(BootloaderState* state) {
         if (detect_sd_card(bank->cs_pin)) {
             hw->sdcard_detected = true;
             hw->sdcard_cs_pin = bank->cs_pin;
+            
+            // Add to SPI device enumeration
+            BootSpiDeviceInfo* device = &hw->spi_devices[hw->spi_device_count++];
+            device->type = SPI_DEVICE_SD_CARD;
+            device->cs_pin = bank->cs_pin;
+            device->type_name = "SD Card";
+            
             printf("[SPI] SD Card detected at CS %d\n", bank->cs_pin);
             continue;  // This bank is SD Card, skip other checks
         }
@@ -671,6 +767,15 @@ static void detect_spi_devices(BootloaderState* state) {
             hw->tft_width = tft_w;
             hw->tft_height = tft_h;
             hw->tft_cs_pin = bank->cs_pin;
+            
+            // Add to SPI device enumeration
+            BootSpiDeviceInfo* device = &hw->spi_devices[hw->spi_device_count++];
+            device->type = SPI_DEVICE_TFT;
+            device->cs_pin = bank->cs_pin;
+            device->width = tft_w;
+            device->height = tft_h;
+            device->type_name = "TFT";
+            
             printf("[SPI] TFT detected at CS %d: %dx%d\n", bank->cs_pin, tft_w, tft_h);
             continue;  // This bank is TFT, skip other checks
         }
@@ -679,6 +784,13 @@ static void detect_spi_devices(BootloaderState* state) {
         if (detect_touch(bank->cs_pin)) {
             hw->touch_detected = true;
             hw->touch_cs_pin = bank->cs_pin;
+            
+            // Add to SPI device enumeration
+            BootSpiDeviceInfo* device = &hw->spi_devices[hw->spi_device_count++];
+            device->type = SPI_DEVICE_TOUCH;
+            device->cs_pin = bank->cs_pin;
+            device->type_name = "Touch";
+            
             printf("[SPI] Touch detected at CS %d\n", bank->cs_pin);
             continue;  // This bank is Touch, skip other checks
         }
@@ -699,8 +811,29 @@ static void detect_spi_devices(BootloaderState* state) {
                 default:
                     break;
             }
+            
+            // Add to SPI device enumeration
+            BootSpiDeviceInfo* device = &hw->spi_devices[hw->spi_device_count++];
+            device->type = SPI_DEVICE_EXPANDER;
+            device->cs_pin = bank->cs_pin;
+            device->expander_type = exp_type;
+            device->type_name = "Expander";
+            
             printf("[SPI] Expander detected at CS %d: %d\n", bank->cs_pin, exp_type);
         }
+    }
+    
+    // Print SPI device enumeration summary
+    printf("[SPI] Device enumeration complete: %d devices found\n", hw->spi_device_count);
+    for (int i = 0; i < hw->spi_device_count; i++) {
+        BootSpiDeviceInfo* device = &hw->spi_devices[i];
+        printf("[SPI]   Device %d: %s at CS %d", i + 1, device->type_name, device->cs_pin);
+        if (device->type == SPI_DEVICE_SRAM || device->type == SPI_DEVICE_PSRAM) {
+            printf(", %lu KB", device->size / 1024);
+        } else if (device->type == SPI_DEVICE_TFT) {
+            printf(", %dx%d", device->width, device->height);
+        }
+        printf("\n");
     }
 }
 

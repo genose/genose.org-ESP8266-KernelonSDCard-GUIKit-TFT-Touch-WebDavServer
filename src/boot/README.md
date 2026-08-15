@@ -19,12 +19,14 @@ Boot Start
     ↓
 1. Hardware Detection
    ├── Detect SPI Bus
-   ├── Detect SRAM (23LC1024, etc.)
-   ├── Detect PSRAM (ESP32)
-   ├── Detect SD Card
-   ├── Detect TFT Display
-   ├── Detect Touch Controller
-   └── Detect SPI Expanders (MCP23S17, etc.)
+   ├── Enumerate SPI Devices (with type detection)
+   │   ├── SRAM (23LC1024, etc.)
+   │   ├── PSRAM (ESP32)
+   │   ├── SD Card
+   │   ├── TFT Display
+   │   ├── Touch Controller
+   │   └── SPI Expanders (MCP23S17, etc.)
+   └── Build SPI Device Enumeration List
     ↓
 2. RAM Initialization
    ├── Initialize Internal RAM
@@ -54,9 +56,52 @@ Boot Start
 Boot Complete
 ```
 
+## SPI Device Enumeration
+
+The bootloader enumerates all SPI devices connected to the bus and provides a complete list of detected devices with their types, CS pins, and other details.
+
+### SPI Device Types
+
+The following device types are enumerated:
+- `SPI_DEVICE_SRAM` - SPI SRAM (23LC1024, etc.)
+- `SPI_DEVICE_PSRAM` - PSRAM
+- `SPI_DEVICE_SD_CARD` - SD Card
+- `SPI_DEVICE_TFT` - TFT Display
+- `SPI_DEVICE_TOUCH` - Touch Controller
+- `SPI_DEVICE_EXPANDER` - GPIO Expander (MCP23S17, etc.)
+- `SPI_DEVICE_FRAM` - FRAM
+- `SPI_DEVICE_EEPROM` - SPI EEPROM
+- `SPI_DEVICE_FLASH` - SPI Flash
+- `SPI_DEVICE_UNKNOWN` - Unknown device
+
+### SPI Device Information
+
+Each detected SPI device is stored in a `BootSpiDeviceInfo` structure containing:
+- `type` - Device type enumeration
+- `cs_pin` - Chip select pin
+- `size` - Size in bytes (for memory devices)
+- `type_name` - Human-readable type name
+- `width`, `height` - Dimensions (for TFT)
+- `expander_type` - Expander type (if applicable)
+
+### Usage
+
+```c
+// Get all enumerated SPI devices
+const BootSpiDeviceInfo* devices = enumerate_spi_devices(&state);
+uint8_t count = get_spi_device_count(&state);
+
+for (int i = 0; i < count; i++) {
+    printf("Device %d: %s at CS %d\n", 
+           i + 1, 
+           spi_device_type_to_string(devices[i].type),
+           devices[i].cs_pin);
+}
+```
+
 ## Kernel Check
 
-After SD Card initialization, the bootloader verifies that a valid kernel file exists and can be loaded into memory. This is Step 3.5 in the boot sequence.
+After SD Card initialization, the bootloader verifies that a valid kernel file exists and can be loaded into memory. This is Step 5 in the boot sequence.
 
 ### Kernel Check Process
 
@@ -284,17 +329,23 @@ printf("  Internal RAM max: %lu KB\n",
 GUIKit Bootloader Starting
 ========================================
 
-[BOOT] Step 1/6: Hardware Detection
+[BOOT] Step 1/7: Hardware Detection
 [SPI] Initializing: SCK=14, MOSI=13, MISO=12, Speed=20 MHz
+[SPI] Enumerating devices on bus: SCK=14, MOSI=13, MISO=12, Speed=20 MHz
 [SPI] SRAM detected at CS 16: 23LC1024, 128 KB
 [SPI] SD Card detected at CS 5
 [SPI] TFT detected at CS 15: 320x240
 [SPI] Touch detected at CS 4
+[SPI] Device enumeration complete: 4 devices found
+[SPI]   Device 1: SRAM at CS 16, 128 KB
+[SPI]   Device 2: SD Card at CS 5
+[SPI]   Device 3: TFT at CS 15, 320x240
+[SPI]   Device 4: Touch at CS 4
 [BOOT] Hardware detection complete
   SRAM: Yes, PSRAM: No, SD Card: Yes, TFT: Yes, Touch: Yes
   SPI Expanders: 0, GPIO: 0
 
-[BOOT] Step 2/6: RAM Initialization
+[BOOT] Step 2/7: RAM Initialization
 [RAM] SRAM initialized: 128 KB at CS 16
 [BOOT] RAM initialization complete
   Available RAM: 208 KB (Internal: ~80 KB, External: 128 KB)
