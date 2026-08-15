@@ -3,6 +3,7 @@
  * 
  * Handles WebDAV connection management on the ESP8266
  * Allows connecting, disconnecting, testing, and browsing WebDAV servers
+ * Each authenticated user gets their home directory as the WebDAV root
  */
 
 // ============================================================================
@@ -14,6 +15,7 @@ var WebDAVState = {
     serverUrl: 'http://esp8266.local:8080/webdav',
     username: 'admin',
     password: '',
+    userHome: '/home/admin',
     fileCount: 0,
     dirCount: 0,
     files: [],
@@ -44,6 +46,7 @@ function loadSettings() {
         WebDAVState.serverUrl = localStorage.getItem('webdav_server_url') || WebDAVState.serverUrl;
         WebDAVState.username = localStorage.getItem('webdav_username') || WebDAVState.username;
         WebDAVState.password = localStorage.getItem('webdav_password') || WebDAVState.password;
+        WebDAVState.userHome = localStorage.getItem('webdav_user_home') || WebDAVState.userHome;
     }
 }
 
@@ -55,6 +58,7 @@ function saveSettings() {
         localStorage.setItem('webdav_server_url', WebDAVState.serverUrl);
         localStorage.setItem('webdav_username', WebDAVState.username);
         localStorage.setItem('webdav_password', WebDAVState.password);
+        localStorage.setItem('webdav_user_home', WebDAVState.userHome);
     }
 }
 
@@ -120,9 +124,15 @@ function webdav_connect(widget, event) {
     
     saveSettings();
     
+    // Look up user home directory from UserManager
+    setUserHomeDirectory(WebDAVState.username);
+    
     // Attempt connection
     if (typeof WebDAVClient !== 'undefined') {
-        WebDAVClient.connect(WebDAVState.serverUrl, WebDAVState.username, WebDAVState.password)
+        // Set user home as the root path for this connection
+        var userRoot = WebDAVState.userHome;
+        
+        WebDAVClient.connect(WebDAVState.serverUrl, WebDAVState.username, WebDAVState.password, userRoot)
             .then(function(success) {
                 WebDAVState.connected = success;
                 WebDAVState.connectionError = null;
@@ -145,6 +155,26 @@ function webdav_connect(widget, event) {
         WebDAVState.fileCount = 0;
         WebDAVState.dirCount = 0;
         updateStatusUI();
+    }
+}
+
+/**
+ * Set user home directory based on username
+ * Looks up the user's home from UserManager or uses default
+ * @param {string} username - The username
+ */
+function setUserHomeDirectory(username) {
+    if (typeof UserManager !== 'undefined') {
+        var user = UserManager.getByUsername(username);
+        if (user && user.home) {
+            WebDAVState.userHome = user.home;
+        } else {
+            // Default home directory
+            WebDAVState.userHome = '/home/' + username;
+        }
+    } else {
+        // Default home directory
+        WebDAVState.userHome = '/home/' + username;
     }
 }
 
@@ -248,6 +278,19 @@ var WebDAVManager = {
     setCredentials: function(username, password) {
         WebDAVState.username = username;
         WebDAVState.password = password;
+        setUserHomeDirectory(username);
+        saveSettings();
+    },
+    getUserHome: function() { return WebDAVState.userHome; },
+    setUserHome: function(path) { WebDAVState.userHome = path; saveSettings(); },
+    setUser: function(username, password, home) {
+        WebDAVState.username = username;
+        WebDAVState.password = password;
+        if (home) {
+            WebDAVState.userHome = home;
+        } else {
+            setUserHomeDirectory(username);
+        }
         saveSettings();
     }
 };

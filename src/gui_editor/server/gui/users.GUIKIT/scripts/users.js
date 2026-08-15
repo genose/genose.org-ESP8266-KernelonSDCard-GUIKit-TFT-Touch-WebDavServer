@@ -300,12 +300,16 @@ function createNewUser() {
         username: newUser.username.trim(),
         password: newUser.password,  // In real implementation, hash this
         permissions: newUser.permissions,
+        home: '/home/' + newUser.username.trim(),
         created: new Date().toISOString(),
         lastLogin: null
     };
     
     UsersState.users.push(user);
     saveUsers();
+    
+    // Create user home directory from skeleton
+    createUserHomeDirectory(user.username, user.home);
     
     // Reset new user
     UsersState.newUser = {
@@ -318,7 +322,125 @@ function createNewUser() {
     // Refresh list
     refreshUsers();
     updateUserCount();
-    updateInfoText('User created: ' + user.username);
+    updateInfoText('User created: ' + user.username + ' with home: ' + user.home);
+}
+
+/**
+ * Create user home directory from /etc/user.skel/ template
+ * @param {string} username - The username
+ * @param {string} homePath - The home directory path (e.g., /home/username)
+ */
+function createUserHomeDirectory(username, homePath) {
+    if (typeof FileSystem !== 'undefined') {
+        // Using FileSystem API (ESP8266 SD card filesystem)
+        try {
+            // Create home directory
+            FileSystem.mkdir(homePath);
+            
+            // Copy contents from /etc/user.skel/ to home directory
+            var skelPath = '/etc/user.skel/';
+            var skelFiles = FileSystem.list(skelPath);
+            
+            if (skelFiles && skelFiles.length > 0) {
+                for (var i = 0; i < skelFiles.length; i++) {
+                    var file = skelFiles[i];
+                    var sourcePath = skelPath + file.name;
+                    var destPath = homePath + '/' + file.name;
+                    
+                    if (file.isDirectory) {
+                        // Recursively copy directories
+                        copyDirectoryRecursive(sourcePath, destPath);
+                    } else {
+                        // Copy file
+                        var content = FileSystem.read(sourcePath);
+                        if (content !== null) {
+                            FileSystem.write(destPath, content);
+                        }
+                    }
+                }
+            }
+            
+            // Ensure projects directory exists
+            var projectsPath = homePath + '/projects';
+            if (!FileSystem.exists(projectsPath)) {
+                FileSystem.mkdir(projectsPath);
+            }
+            
+            return true;
+        } catch (error) {
+            updateInfoText('Warning: Failed to create home dir: ' + error.message);
+            return false;
+        }
+    } else if (typeof FS !== 'undefined') {
+        // Alternative filesystem API
+        try {
+            FS.mkdir(homePath);
+            copySkeletonToHome(username, homePath);
+            return true;
+        } catch (error) {
+            updateInfoText('Warning: Failed to create home dir: ' + error.message);
+            return false;
+        }
+    } else {
+        // Simulated/fallback - log the action
+        updateInfoText('Home directory would be created: ' + homePath + ' (from /etc/user.skel/)');
+        return false;
+    }
+}
+
+/**
+ * Recursively copy a directory
+ * @param {string} sourcePath - Source directory path
+ * @param {string} destPath - Destination directory path
+ */
+function copyDirectoryRecursive(sourcePath, destPath) {
+    if (typeof FileSystem !== 'undefined') {
+        try {
+            FileSystem.mkdir(destPath);
+            var files = FileSystem.list(sourcePath);
+            
+            if (files && files.length > 0) {
+                for (var i = 0; i < files.length; i++) {
+                    var file = files[i];
+                    var sourceFile = sourcePath + '/' + file.name;
+                    var destFile = destPath + '/' + file.name;
+                    
+                    if (file.isDirectory) {
+                        copyDirectoryRecursive(sourceFile, destFile);
+                    } else {
+                        var content = FileSystem.read(sourceFile);
+                        if (content !== null) {
+                            FileSystem.write(destFile, content);
+                        }
+                    }
+                }
+            }
+        } catch (error) {
+            // Log but don't fail - some files may not copy
+        }
+    }
+}
+
+/**
+ * Copy skeleton contents to user home directory (alternative implementation)
+ * @param {string} username - The username
+ * @param {string} homePath - The home directory path
+ */
+function copySkeletonToHome(username, homePath) {
+    // This function provides alternative implementation for different filesystem APIs
+    var skelPath = '/etc/user.skel/';
+    
+    // Create standard structure
+    var projectsPath = homePath + '/projects';
+    
+    // Copy README.md from skeleton
+    if (typeof FS !== 'undefined') {
+        if (FS.exists(skelPath + 'README.md')) {
+            var readmeContent = FS.read(skelPath + 'README.md');
+            FS.write(homePath + '/README.md', readmeContent);
+        }
+        FS.mkdir(projectsPath);
+    }
 }
 
 /**
