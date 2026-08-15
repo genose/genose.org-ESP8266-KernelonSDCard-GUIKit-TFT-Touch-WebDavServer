@@ -18,6 +18,13 @@
 #include "guikit_hw_config.h"
 #include "gui_memory_strategy.h"
 
+// GUIKit Version
+#define GUIKIT_VERSION "1.0.0"
+
+// Project information
+#define GUIKIT_PROJECT_NAME "Project_260815_GUIKit_WebDav"
+#define GUIKIT_DATE "15/08/2026"
+
 // Forward declarations for hardware classes
 class SPISRAM;
 class SDCard;
@@ -514,9 +521,9 @@ static void tft_display_progress(BootloaderState* state, const char* message) {
     
     // If we reach the bottom, scroll up (simplified)
     if (y_pos > BOOTLOADER_TFT_HEIGHT - 20) {
-        y_pos = 30;
+        y_pos = 80;
         tft_clear(state->tft_instance, BOOTLOADER_BG_COLOR);
-        tft_draw_text(state->tft_instance, 10, 10, "GUIKit Bootloader", BOOTLOADER_SUCCESS_COLOR, BOOTLOADER_BG_COLOR);
+        draw_tft_header(state->tft_instance);
     }
 }
 
@@ -1036,8 +1043,7 @@ static bool init_tft(BootloaderState* state) {
     tft_clear(state->tft_instance, BOOTLOADER_BG_COLOR);
     
     // Display boot header
-    tft_draw_text(state->tft_instance, 10, 10, "GUIKit Bootloader", BOOTLOADER_SUCCESS_COLOR, BOOTLOADER_BG_COLOR);
-    tft_draw_text(state->tft_instance, 10, 30, "Initializing...", BOOTLOADER_TEXT_COLOR, BOOTLOADER_BG_COLOR);
+    draw_tft_header(state->tft_instance);
     
     // Display progress message
     tft_display_progress(state, "TFT Ready");
@@ -1159,6 +1165,33 @@ static void bootloader_init(BootloaderState* state, const guikit_hw_config_t* pl
 }
 
 /**
+ * @brief Draw GUIKit header on TFT
+ * 
+ * Displays the formatted header with version and project info
+ * 
+ * @param tft TFT instance
+ */
+static void draw_tft_header(TFT_ST7789* tft) {
+    if (!tft) return;
+    
+    int y = 10;
+    tft_draw_text(tft, 10, y, " ******** GUIKit Bootloader ******** ", BOOTLOADER_SUCCESS_COLOR, BOOTLOADER_BG_COLOR);
+    y += 20;
+    
+    char version_buffer[64];
+    snprintf(version_buffer, sizeof(version_buffer), " ******** %s -((%s)) - ******** ", GUIKIT_DATE, GUIKIT_VERSION);
+    tft_draw_text(tft, 10, y, version_buffer, BOOTLOADER_SUCCESS_COLOR, BOOTLOADER_BG_COLOR);
+    y += 20;
+    
+    char project_buffer[64];
+    snprintf(project_buffer, sizeof(project_buffer), " 2026 Genose.org - %s ", GUIKIT_PROJECT_NAME);
+    tft_draw_text(tft, 10, y, project_buffer, BOOTLOADER_TEXT_COLOR, BOOTLOADER_BG_COLOR);
+    y += 20;
+    
+    tft_draw_text(tft, 10, y, " ******** ********* ********* ", BOOTLOADER_SUCCESS_COLOR, BOOTLOADER_BG_COLOR);
+}
+
+/**
  * @brief Log boot message to serial and optionally TFT
  * 
  * Before TFT is initialized, logs only to serial
@@ -1182,15 +1215,15 @@ static void boot_log(BootloaderState* state, const char* format, ...) {
         vsnprintf(buffer, sizeof(buffer), format, args);
         va_end(args);
         
-        static int tft_y_pos = 30;  // Start below header
+        static int tft_y_pos = 80;  // Start below header (4 lines: 10 + 20 + 20 + 20)
         tft_draw_text(state->tft_instance, 10, tft_y_pos, buffer, BOOTLOADER_TEXT_COLOR, BOOTLOADER_BG_COLOR);
         tft_y_pos += 15;
         
         // Scroll if needed
         if (tft_y_pos > BOOTLOADER_TFT_HEIGHT - 20) {
             tft_clear(state->tft_instance, BOOTLOADER_BG_COLOR);
-            tft_draw_text(state->tft_instance, 10, 10, "GUIKit Bootloader", BOOTLOADER_SUCCESS_COLOR, BOOTLOADER_BG_COLOR);
-            tft_y_pos = 30;
+            draw_tft_header(state->tft_instance);
+            tft_y_pos = 80;
         }
     }
 }
@@ -1355,7 +1388,7 @@ bool guikit_bootloader_run(BootloaderState* state) {
         
         // Clear TFT and show header
         tft_clear(state->tft_instance, BOOTLOADER_BG_COLOR);
-        tft_draw_text(state->tft_instance, 10, 10, "GUIKit Bootloader", BOOTLOADER_SUCCESS_COLOR, BOOTLOADER_BG_COLOR);
+        draw_tft_header(state->tft_instance);
     }
     
     printf("Loading ... [Step 4/8] TFT initialization complete\n");
@@ -1486,9 +1519,8 @@ bool guikit_bootloader_run(BootloaderState* state) {
     if (state->hardware.tft_detected) {
         tft_clear(state->tft_instance, BOOTLOADER_BG_COLOR);
         
-        int y = 10;
-        tft_draw_text(state->tft_instance, 10, y, "GUIKit Bootloader", BOOTLOADER_SUCCESS_COLOR, BOOTLOADER_BG_COLOR);
-        y += 20;
+        draw_tft_header(state->tft_instance);
+        int y = 80;
         
         tft_draw_text(state->tft_instance, 10, y, "Hardware Detected:", BOOTLOADER_TEXT_COLOR, BOOTLOADER_BG_COLOR);
         y += 20;
