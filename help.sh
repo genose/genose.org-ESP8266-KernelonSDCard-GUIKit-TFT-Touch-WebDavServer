@@ -14,6 +14,7 @@ Usage:
   ./help.sh bootloader         - Bootloader information
   ./help.sh config             - Configuration information
   ./help.sh gui                - GUI loading information
+  ./help.sh webdav-push        - WebDAV push notification information
   ./help.sh all                - Show all documentation
 
 --------------------------------------------------------------------------------
@@ -25,6 +26,7 @@ Available Commands:
   config       - Show hardware configuration documentation
   gui          - Show GUI loading documentation
   huge-gui     - Show huge GUI (500KB) results
+  webdav-push  - Show WebDAV push notification documentation
   all          - Show all documentation
 
 --------------------------------------------------------------------------------
@@ -51,6 +53,7 @@ Documentation Files:
   docs/HARDWARE.md              - Hardware setup
   docs/SOFTWARE.md              - Software components
   docs/NETWORK.md               - Network architecture
+  docs/WEBDAV_PUSH.md           - WebDAV push notification system
   src/boot/README.md            - Bootloader documentation
   src/gui/demo_huge_gui_result.txt - Huge GUI results
 
@@ -107,6 +110,9 @@ case "$1" in
         ;;
     "huge-gui"|"h")
         cat src/gui/demo_huge_gui_result.txt
+        ;;
+    "webdav-push"|"webdav"|"w")
+        cat docs/WEBDAV_PUSH.md
         ;;
     "all"|"a")
         echo "Displaying all documentation..."

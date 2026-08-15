@@ -42,11 +42,13 @@ The **WebDAV Push Notification System** enables real-time notifications from the
 
 ```
 src/gui_editor/server/
-├── webdav_push.h      # Header with types and API
-└── webdav_push.c      # Implementation
+├── webdav_push.h           # Header with types and API
+├── webdav_push.c           # Implementation
+├── webdav_push_auth.h      # Authentication header
+└── webdav_push_auth.c      # Authentication implementation
 
 docs/
-└── WEBDAV_PUSH.md     # This documentation
+└── WEBDAV_PUSH.md          # This documentation
 ```
 
 ---
@@ -420,6 +422,266 @@ webdav_push_check_changes();  // Call in main loop
 
 ---
 
+## Authentication System
+
+The WebDAV Push Notification System includes a comprehensive authentication system for securing push notifications to clients.
+
+### Authentication Methods
+
+The system supports multiple authentication methods:
+
+```c
+typedef enum {
+    WEBDAV_PUSH_AUTH_BASIC = 0,       // HTTP Basic Auth (username/password)
+    WEBDAV_PUSH_AUTH_TOKEN,          // Bearer token
+    WEBDAV_PUSH_AUTH_DIGEST,         // HTTP Digest Auth
+    WEBDAV_PUSH_AUTH_ANONYMOUS,      // No authentication (read-only)
+} WebDAVPushAuthMethod;
+```
+
+### Permission System
+
+Permission flags control what authenticated clients can do:
+
+```c
+typedef enum {
+    WEBDAV_PUSH_PERM_READ = 1 << 0,    // Can receive notifications
+    WEBDAV_PUSH_PERM_WRITE = 1 << 1,   // Can subscribe to paths
+    WEBDAV_PUSH_PERM_ADMIN = 1 << 2,   // Can manage watches
+    WEBDAV_PUSH_PERM_ALL = 0xFF,      // All permissions
+} WebDAVPushPermission;
+```
+
+### Quick Start - Authentication
+
+```c
+#include "webdav_push_auth.h"
+
+// Initialize authentication system
+WebDAVPushAuthConfig auth_config = {
+    .require_auth = true,
+    .default_method = WEBDAV_PUSH_AUTH_BASIC,
+    .allow_anonymous = false,
+    .use_session_tokens = true,
+    .token_expiry = 86400000,  // 24 hours in ms
+};
+
+webdav_push_auth_init(&auth_config);
+
+// Or use defaults (authentication required, Basic auth, session tokens enabled)
+webdav_push_auth_init(NULL);
+```
+
+### User Management
+
+```c
+// Add a user
+webdav_push_user_add("username", "password", WEBDAV_PUSH_PERM_READ | WEBDAV_PUSH_PERM_WRITE);
+
+// Remove a user
+webdav_push_user_remove("username");
+
+// Update password
+webdav_push_user_update_password("username", "new_password");
+
+// Update permissions
+webdav_push_user_update_permissions("username", WEBDAV_PUSH_PERM_ADMIN);
+
+// Enable/disable user
+webdav_push_user_set_enabled("username", false);
+
+// Get user by name
+WebDAVPushUser* user = webdav_push_user_get("username");
+```
+
+### Session Management
+
+Sessions manage authenticated client connections:
+
+```c
+// Create a session for a user (called after successful authentication)
+const char* session_id = webdav_push_session_create("username", WEBDAV_PUSH_PERM_READ);
+
+// Get session by ID
+WebDAVPushSession* session = webdav_push_session_get(session_id);
+
+// Get session by client ID
+WebDAVPushSession* session = webdav_push_session_get_by_client(client_id);
+
+// Ping session (update last activity - prevents timeout)
+webdav_push_session_ping(session_id);
+
+// Destroy session
+webdav_push_session_destroy(session_id);
+
+// Cleanup expired sessions (call periodically)
+webdav_push_session_cleanup();
+```
+
+**Session Configuration:**
+- Maximum: 16 concurrent sessions
+- Timeout: 5 minutes (300,000 ms)
+- Lockout: 5 failed attempts, 1-minute duration
+
+### Authentication Flow
+
+#### Username/Password Authentication
+
+```c
+// Client attempts login
+bool success = webdav_push_auth_login(
+    client_id,
+    "username",
+    "password"
+);
+
+// Check if client is authenticated
+if (webdav_push_auth_is_authenticated(client_id)) {
+    // Client is authenticated
+}
+
+// Check permissions
+if (webdav_push_auth_has_permission(client_id, WEBDAV_PUSH_PERM_WRITE)) {
+    // Client can subscribe to paths
+}
+
+// Get auth state
+WebDAVPushAuthState* state = webdav_push_auth_get_state(client_id);
+```
+
+#### Token Authentication
+
+```c
+// Generate a token for a user
+const char* token = webdav_push_token_generate(
+    "username",
+    WEBDAV_PUSH_PERM_READ | WEBDAV_PUSH_PERM_WRITE,
+    86400000  // 24 hours expiry
+);
+
+// Client authenticates with token
+bool success = webdav_push_auth_token(client_id, token);
+
+// Validate a token
+bool valid = webdav_push_token_validate(token);
+
+// Get token info
+WebDAVPushToken* token_info = webdav_push_token_get(token);
+
+// Revoke a token
+webdav_push_token_revoke(token);
+
+// Revoke all tokens for a user
+int count = webdav_push_token_revoke_all("username");
+
+// List all active tokens
+WebDAVPushToken** tokens = webdav_push_token_list();
+
+// Cleanup expired tokens
+webdav_push_token_cleanup();
+```
+
+**Token Configuration:**
+- Maximum: 32 active tokens
+- Default expiry: 24 hours
+- Token length: 32 characters (secure random)
+
+### Rate Limiting
+
+The system includes rate limiting to prevent abuse:
+
+```c
+// Check if client is rate limited
+if (webdav_push_rate_limit_check(client_id)) {
+    // Client has exceeded rate limit
+    // Return HTTP 429 Too Many Requests
+}
+
+// Record a notification send
+webdav_push_rate_limit_record(client_id);
+
+// Get remaining notifications for client
+uint32_t remaining = webdav_push_rate_limit_remaining(client_id);
+```
+
+**Rate Limit Configuration:**
+- Default: 60 notifications per minute per client
+- Configurable per client
+
+### Password Hashing
+
+```c
+// Hash a password
+char hash[64];
+webdav_push_password_hash("mypassword", hash);
+
+// Verify a password against a hash
+bool match = webdav_push_password_verify("mypassword", hash);
+```
+
+**Note:** The implementation uses a simple hash function suitable for embedded systems. For production use, implement SHA-256 or similar cryptographic hash.
+
+### Default Users
+
+The system automatically creates a default admin user:
+- **Username:** `admin`
+- **Password:** `admin`
+- **Permissions:** All (READ, WRITE, ADMIN)
+
+### Authentication Configuration
+
+```c
+typedef struct {
+    bool require_auth;                    // Require authentication
+    WebDAVPushAuthMethod default_method; // Default auth method
+    bool allow_anonymous;                 // Allow anonymous connections (read-only)
+    bool use_session_tokens;             // Use session tokens
+    uint32_t token_expiry;                // Token expiry in ms (0 = never expire)
+} WebDAVPushAuthConfig;
+```
+
+### Security Utilities
+
+```c
+// Generate a random string
+char buffer[33];
+webdav_push_generate_random_string(buffer, 32);
+
+// Create a secure session ID
+const char* session_id = webdav_push_create_session_id();
+
+// Create a secure token
+const char* token = webdav_push_create_token();
+```
+
+### Shutdown
+
+```c
+// Shutdown authentication system (clears sensitive data)
+webdav_push_auth_shutdown();
+```
+
+### Integration with Push Notification System
+
+The authentication system integrates seamlessly with the push notification system:
+
+```c
+// Check if authentication is required before sending notification
+if (webdav_push_auth_required()) {
+    if (!webdav_push_auth_is_authenticated(client_id)) {
+        // Return 401 Unauthorized
+        return;
+    }
+}
+
+// Send notification only to authenticated clients with READ permission
+if (webdav_push_auth_has_permission(client_id, WEBDAV_PUSH_PERM_READ)) {
+    webdav_push_notify_client(client_id, &notification);
+}
+```
+
+---
+
 ## Client Examples
 
 ### Python SSE Client
@@ -528,6 +790,8 @@ eventSource.addEventListener('project_updated', (event) => {
 |------|-------------|
 | `src/gui_editor/server/webdav_push.h` | Header with API |
 | `src/gui_editor/server/webdav_push.c` | Implementation |
+| `src/gui_editor/server/webdav_push_auth.h` | Authentication types and API |
+| `src/gui_editor/server/webdav_push_auth.c` | Authentication implementation |
 | `docs/WEBDAV_PUSH.md` | This documentation |
 
 ---
@@ -547,8 +811,8 @@ eventSource.addEventListener('project_updated', (event) => {
 - [ ] Add WebSocket library integration
 - [ ] Implement inotify-like for SD card (if supported)
 - [ ] Add notification history/replay
-- [ ] Add client authentication
-- [ ] Add rate limiting
+- [x] Add client authentication
+- [x] Add rate limiting
 - [ ] Add notification filtering by client
 - [ ] Support for binary data in notifications
 - [ ] Add reconnection handling

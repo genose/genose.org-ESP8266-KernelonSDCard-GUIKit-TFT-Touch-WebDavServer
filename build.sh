@@ -157,6 +157,7 @@ FEATURES:
   Task switcher: Single-level context switching (A -> B -> back to A)
   Task progress: TFT text display for heavy tasks with minimal RAM usage
   WebDAV support for remote file access and user authentication
+  WebDAV push notifications with authentication (SSE, WebSocket, Long Polling)
   Project structure: (project_name).GUIKIT directories
 
 DEPENDENCIES:

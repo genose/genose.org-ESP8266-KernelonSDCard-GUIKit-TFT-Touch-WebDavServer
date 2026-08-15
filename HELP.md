@@ -9,8 +9,9 @@
 6. [Task Progress](#task-progress)
 7. [Hardware Configuration](#hardware-configuration)
 8. [GUI Loading](#gui-loading)
-9. [Troubleshooting](#troubleshooting)
-10. [Command Reference](#command-reference)
+9. [WebDAV Push Notifications](#webdav-push-notifications)
+10. [Troubleshooting](#troubleshooting)
+11. [Command Reference](#command-reference)
 
 ---
 
@@ -692,6 +693,181 @@ MemoryStrategyResult result = gui_memory_strategy_force(
 
 ---
 
+## WebDAV Push Notifications
+
+The WebDAV Push Notification System enables real-time notifications from the ESP8266/ESP32 device to Linux/macOS WebDAV clients. It supports multiple transport mechanisms and includes a comprehensive authentication system.
+
+### Features
+
+**Transport Mechanisms:**
+- Server-Sent Events (SSE) - HTTP-based streaming
+- WebSocket - Persistent bidirectional connections
+- Long Polling - Legacy client compatibility
+
+**Authentication:**
+- Multiple auth methods: Basic (username/password), Token, Digest, Anonymous
+- Permission system: READ, WRITE, ADMIN flags
+- Session management: 16 max sessions, 5-minute timeout
+- Token management: 32 max tokens, 24-hour default expiry
+- Rate limiting: 60 notifications/minute per client
+- Lockout after 5 failed attempts (1-minute duration)
+- Default admin user: `admin`/`admin` with full permissions
+
+**Event Types:**
+- File created, modified, deleted, moved
+- Folder created, deleted
+- Project updates
+- GUI updates
+- System events
+- Custom events
+
+### Quick Start
+
+```c
+#include "webdav_push.h"
+#include "webdav_push_auth.h"
+
+// Initialize push system
+webdav_push_init(NULL);
+
+// Initialize authentication
+webdav_push_auth_init(NULL);
+
+// Register a client
+uint32_t client_id = webdav_push_client_register(
+    WEBDAV_PUSH_CLIENT_SSE,
+    "/projects/my_project"
+);
+
+// Authenticate client
+webdav_push_auth_login(client_id, "admin", "admin");
+
+// Send notification
+WebDAVPushNotification notif = {
+    .type = WEBDAV_PUSH_FILE_CREATED,
+    .timestamp = millis(),
+    .path = "/projects/file.txt",
+    .size = 1024,
+};
+webdav_push_notify(&notif);
+```
+
+### Authentication API
+
+**User Management:**
+```c
+// Add user
+webdav_push_user_add("username", "password", WEBDAV_PUSH_PERM_READ);
+
+// Update permissions
+webdav_push_user_update_permissions("username", WEBDAV_PUSH_PERM_ADMIN);
+
+// Get user
+WebDAVPushUser* user = webdav_push_user_get("username");
+```
+
+**Token Management:**
+```c
+// Generate token
+const char* token = webdav_push_token_generate("username", WEBDAV_PUSH_PERM_READ, 86400000);
+
+// Authenticate with token
+webdav_push_auth_token(client_id, token);
+
+// Validate token
+bool valid = webdav_push_token_validate(token);
+
+// Revoke token
+webdav_push_token_revoke(token);
+```
+
+**Session Management:**
+```c
+// Create session
+const char* session_id = webdav_push_session_create("username", WEBDAV_PUSH_PERM_READ);
+
+// Check authentication
+bool authenticated = webdav_push_auth_is_authenticated(client_id);
+
+// Check permissions
+bool can_read = webdav_push_auth_has_permission(client_id, WEBDAV_PUSH_PERM_READ);
+```
+
+**Rate Limiting:**
+```c
+// Check rate limit
+if (webdav_push_rate_limit_check(client_id)) {
+    // Rate limited
+}
+
+// Record notification
+webdav_push_rate_limit_record(client_id);
+
+// Get remaining
+uint32_t remaining = webdav_push_rate_limit_remaining(client_id);
+```
+
+### Configuration
+
+```c
+// Push configuration
+WebDAVPushConfig push_config = {
+    .enabled = true,
+    .port = 8080,
+    .use_sse = true,
+    .use_websocket = true,
+    .use_long_poll = true,
+};
+
+// Auth configuration
+WebDAVPushAuthConfig auth_config = {
+    .require_auth = true,
+    .default_method = WEBDAV_PUSH_AUTH_BASIC,
+    .allow_anonymous = false,
+    .use_session_tokens = true,
+    .token_expiry = 86400000,  // 24 hours
+};
+```
+
+### HTTP Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/webdav/push/sse` | SSE event stream |
+| GET | `/webdav/push/ws` | WebSocket connection |
+| GET | `/webdav/push/poll` | Long polling |
+| POST | `/webdav/push/subscribe` | Subscribe to path |
+| POST | `/webdav/push/unsubscribe` | Unsubscribe |
+
+### Memory Usage
+
+| Component | Size | Notes |
+|-----------|------|-------|
+| Push client state | ~300 bytes | Per client (8 max) |
+| Auth state | ~100 bytes | Per client |
+| Notification struct | ~600 bytes | Temporary |
+| **Total (max)** | **~5KB** | All clients + sessions |
+
+### Files
+
+| File | Description |
+|------|-------------|
+| `src/gui_editor/server/webdav_push.h` | Push notification API |
+| `src/gui_editor/server/webdav_push.c` | Push notification implementation |
+| `src/gui_editor/server/webdav_push_auth.h` | Authentication API |
+| `src/gui_editor/server/webdav_push_auth.c` | Authentication implementation |
+| `docs/WEBDAV_PUSH.md` | Full documentation |
+
+### Default Watched Paths
+
+| Path | Recursive | Events |
+|------|-----------|--------|
+| `/gui` | Yes | File create/modify/delete |
+| `/projects` | Yes | File create/modify/delete |
+| `/tmp/task_comm` | No | File create |
+
+---
+
 ## Troubleshooting
 
 ### Common Issues
@@ -867,6 +1043,48 @@ gui_memory_strategy_get_stats(&total_ram, &used_ram, &free_ram, &strategy);
 | `task_progress_set_tft(tft)` | Set TFT instance for progress display |
 | `task_progress_get_tft()` | Get current TFT instance |
 
+### WebDAV Push Commands
+
+| Function | Description |
+|----------|-------------|
+| `webdav_push_init(config)` | Initialize push notification system |
+| `webdav_push_shutdown()` | Shutdown push notification system |
+| `webdav_push_notify(notif)` | Send notification to all clients |
+| `webdav_push_notify_client(client_id, notif)` | Send to specific client |
+| `webdav_push_client_register(type, path)` | Register a client |
+| `webdav_push_client_unregister(client_id)` | Unregister a client |
+| `webdav_push_watch_add(path, recursive, events)` | Watch a path |
+| `webdav_push_watch_remove(path)` | Stop watching a path |
+| `webdav_push_check_changes()` | Check for changes |
+
+### WebDAV Push Authentication Commands
+
+| Function | Description |
+|----------|-------------|
+| `webdav_push_auth_init(config)` | Initialize authentication system |
+| `webdav_push_auth_shutdown()` | Shutdown authentication system |
+| `webdav_push_auth_required()` | Check if auth is required |
+| `webdav_push_auth_login(client_id, user, pass)` | Login with username/password |
+| `webdav_push_auth_token(client_id, token)` | Login with token |
+| `webdav_push_auth_logout(client_id)` | Logout a client |
+| `webdav_push_auth_is_authenticated(client_id)` | Check if authenticated |
+| `webdav_push_auth_has_permission(client_id, perm)` | Check permissions |
+| `webdav_push_user_add(user, pass, perms)` | Add a user |
+| `webdav_push_user_remove(user)` | Remove a user |
+| `webdav_push_user_get(user)` | Get user by username |
+| `webdav_push_user_update_password(user, pass)` | Update password |
+| `webdav_push_user_update_permissions(user, perms)` | Update permissions |
+| `webdav_push_session_create(user, perms)` | Create a session |
+| `webdav_push_session_destroy(session_id)` | Destroy a session |
+| `webdav_push_session_cleanup()` | Cleanup expired sessions |
+| `webdav_push_token_generate(user, perms, expiry)` | Generate a token |
+| `webdav_push_token_validate(token)` | Validate a token |
+| `webdav_push_token_revoke(token)` | Revoke a token |
+| `webdav_push_token_revoke_all(user)` | Revoke all user tokens |
+| `webdav_push_rate_limit_check(client_id)` | Check rate limit |
+| `webdav_push_rate_limit_record(client_id)` | Record notification |
+| `webdav_push_rate_limit_remaining(client_id)` | Get remaining count |
+
 ---
 
 ## File Reference
@@ -880,6 +1098,7 @@ gui_memory_strategy_get_stats(&total_ram, &used_ram, &free_ram, &strategy);
 - `docs/HARDWARE.md` - Hardware setup
 - `docs/SOFTWARE.md` - Software components
 - `docs/NETWORK.md` - Network architecture
+- `docs/WEBDAV_PUSH.md` - WebDAV push notification system
 - `src/boot/README.md` - Bootloader documentation
 - `etc/GUIKIT_autostart.ini` - Example autostart configuration file
 - `docs/TASK_SWITCHER.md` - Task switcher documentation
@@ -912,10 +1131,17 @@ gui_memory_strategy_get_stats(&total_ram, &used_ram, &free_ram, &strategy);
 - `src/gui/*.h/cpp` - GUI framework files
 - `src/gui/demo_huge_gui_result.txt` - Huge GUI results demonstration
 
+#### WebDAV Push
+- `src/gui_editor/server/webdav_push.h` - Push notification header
+- `src/gui_editor/server/webdav_push.c` - Push notification implementation
+- `src/gui_editor/server/webdav_push_auth.h` - Authentication header
+- `src/gui_editor/server/webdav_push_auth.c` - Authentication implementation
+
 ---
 
 ## Version History
 
+- **Latest**: WebDAV push notification authentication system (Basic, Token, Digest, Anonymous)
 - **Latest**: Task switcher for single-level context switching (A -> B -> back to A)
 - **Latest**: JPEG to RGB conversion example with task switching
 - **Latest**: Autostart configuration from /etc/GUIKIT_autostart.ini
