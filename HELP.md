@@ -4,10 +4,11 @@
 1. [Quick Start](#quick-start)
 2. [Memory Strategy](#memory-strategy)
 3. [Bootloader](#bootloader)
-4. [Hardware Configuration](#hardware-configuration)
-5. [GUI Loading](#gui-loading)
-6. [Troubleshooting](#troubleshooting)
-7. [Command Reference](#command-reference)
+4. [Autostart Configuration](#autostart-configuration)
+5. [Hardware Configuration](#hardware-configuration)
+6. [GUI Loading](#gui-loading)
+7. [Troubleshooting](#troubleshooting)
+8. [Command Reference](#command-reference)
 
 ---
 
@@ -143,13 +144,153 @@ guikit_bootloader_run(&state);
 
 ### Boot Sequence
 
-1. **Hardware Detection** - Detects all SPI devices
-2. **RAM Initialization** - Initializes internal and external RAM
-3. **SD Card Initialization** - Initializes SD card if present
-4. **TFT Initialization** - Initializes display if present
-5. **Memory Strategy Configuration** - Auto-configures based on hardware
-6. **Memory Strategy Test** - Tests with various GUI sizes
-7. **Display Results** - Shows boot summary on TFT
+1. **MCU Platform Detection** - Detects ESP8266 or ESP32
+2. **SMP Detection** - Detects multi-core capability
+3. **Hardware Detection** - Detects all SPI devices
+4. **RAM Initialization** - Initializes internal and external RAM
+5. **SD Card Initialization** - Initializes SD card if present
+6. **Autostart Configuration Loading** - Loads /etc/GUIKIT_autostart.ini
+7. **TFT Initialization** - Initializes display if present
+8. **Kernel Check** - Checks kernel file (using autostart config path)
+9. **Memory Strategy Configuration** - Configures based on hardware and autostart settings
+10. **Memory Strategy Test** - Tests with various GUI sizes
+11. **Display Results** - Shows boot summary on TFT
+
+---
+
+## Autostart Configuration
+
+### Overview
+
+The bootloader reads `/etc/GUIKIT_autostart.ini` on the SD card to determine:
+- Which kernel.bin to load
+- Memory strategy configuration
+- Which GUI to start automatically
+- Memory bank allocation rules
+
+This provides a little OS-like boot configuration mechanism.
+
+### Configuration File Format
+
+The file uses INI format with sections:
+
+```ini
+[kernel]
+path = /kernel.bin
+compress = false
+expected_size = 0
+max_size = 0
+verify = true
+
+[memory]
+strategy = auto
+stop_at_first_success = true
+internal.enabled = true
+external.enabled = true
+sd_swap.enabled = true
+
+[gui]
+path = /gui/chooser.GUIKIT
+auto_start = true
+theme = default
+width = 0
+height = 0
+
+[allocations]
+name = gui_widgets
+bank = external
+fallback = sd_swap
+size = 65536
+replace = false
+
+[flags]
+debug = false
+tft_boot_messages = true
+serial_boot_messages = true
+```
+
+### Memory Strategy Options
+
+The `strategy` field in the `[memory]` section supports:
+
+| Strategy | Description | Behavior |
+|----------|-------------|----------|
+| `auto` | Automatic selection | Try external RAM, then SD swap, then internal RAM (STOP at first success) |
+| `external_first` | External RAM first | Try external RAM first, then SD swap, then internal RAM |
+| `sd_swap_first` | SD swap first | Try SD swap first, then external RAM, then internal RAM |
+| `internal_only` | Internal RAM only | Only use internal RAM, disable external and SD swap |
+| `custom` | Custom allocation | Use allocation rules from `[allocations]` section |
+
+### Memory Bank Configuration
+
+Each memory bank can be individually enabled/disabled:
+
+```ini
+[memory]
+internal.enabled = true    ; Internal MCU RAM
+external.enabled = true    ; External SRAM/PSRAM
+sd_swap.enabled = true    ; SD card swap space
+```
+
+### Custom Allocation Rules
+
+When `strategy = custom`, you can define specific allocation rules:
+
+```ini
+[allocations]
+; Format: name, bank, fallback, size, replace
+
+name = gui_widgets
+bank = external
+fallback = sd_swap
+size = 65536
+replace = false
+
+name = image_cache
+bank = sd_swap
+fallback = external
+size = 131072
+replace = true
+```
+
+### Programmatic Usage
+
+You can also access the autostart configuration programmatically:
+
+```c
+#include "guikit_autostart_config.h"
+
+// Initialize with defaults
+guikit_autostart_init_default(&config);
+
+// Parse from file
+if (guikit_autostart_parse_ini(&config, "/etc/GUIKIT_autostart.ini")) {
+    // Config loaded successfully
+}
+
+// Access configuration
+printf("Kernel path: %s\n", config.kernel.path);
+printf("Strategy: %s\n", guikit_autostart_strategy_name(config.strategy));
+printf("GUI path: %s\n", config.gui.gui_path);
+
+// Apply memory strategy
+MemBankType bank = guikit_autostart_apply_strategy(&config, gui_size);
+```
+
+### Boot Sequence Integration
+
+The autostart configuration is loaded in the boot sequence after SD Card initialization:
+
+1. Hardware Detection
+2. RAM Initialization
+3. SPI Detection
+4. SD Card Initialization
+5. **Autostart Configuration Loading** (new)
+6. TFT Initialization
+7. Kernel Check (using autostart kernel path)
+8. Memory Strategy Configuration (using autostart settings)
+9. Memory Strategy Test and Apply
+10. Display Results
 
 ---
 
@@ -383,6 +524,24 @@ gui_memory_strategy_get_stats(&total_ram, &used_ram, &free_ram, &strategy);
 | `guikit_hw_count_expanders(config)` | Count SPI expanders |
 | `guikit_hw_get_expander_gpio(config)` | Get total expander GPIO |
 
+### Autostart Configuration Commands
+
+| Function | Description |
+|----------|-------------|
+| `guikit_autostart_init_default(config)` | Initialize with default autostart config |
+| `guikit_autostart_parse_ini(config, filepath)` | Parse INI file into config |
+| `guikit_autostart_save_ini(config, filepath)` | Save config to INI file |
+| `guikit_autostart_validate(config)` | Validate autostart configuration |
+| `guikit_autostart_detect_banks(config)` | Detect available memory banks |
+| `guikit_autostart_load_kernel(config, buffer, size)` | Load kernel using autostart config |
+| `guikit_autostart_boot(config)` | Run complete autostart boot process |
+| `guikit_autostart_alloc(config, size, name)` | Allocate memory using autostart strategy |
+| `guikit_autostart_free(config, ptr, name)` | Free memory |
+| `guikit_autostart_apply_strategy(config, size)` | Apply memory strategy |
+| `guikit_autostart_bank_name(bank)` | Get bank name string |
+| `guikit_autostart_strategy_name(strategy)` | Get strategy name string |
+| `guikit_autostart_print_config(config)` | Print autostart config |
+
 ---
 
 ## File Reference
@@ -397,12 +556,17 @@ gui_memory_strategy_get_stats(&total_ram, &used_ram, &free_ram, &strategy);
 - `docs/SOFTWARE.md` - Software components
 - `docs/NETWORK.md` - Network architecture
 - `src/boot/README.md` - Bootloader documentation
+- `etc/GUIKIT_autostart.ini` - Example autostart configuration file
 
 ### Source Files
 
 #### Bootloader
 - `src/boot/guikit_bootloader.h` - Bootloader header
 - `src/boot/guikit_bootloader.cpp` - Bootloader implementation
+- `src/boot/guikit_autostart_config.h` - Autostart configuration header
+- `src/boot/guikit_autostart_config.cpp` - Autostart configuration implementation
+- `src/boot/ini_parser.h` - INI parser header
+- `src/boot/ini_parser.c` - INI parser implementation
 
 #### Memory Strategy
 - `src/gui/gui_memory_strategy.h` - Memory strategy header
@@ -419,6 +583,8 @@ gui_memory_strategy_get_stats(&total_ram, &used_ram, &free_ram, &strategy);
 
 ## Version History
 
+- **Latest**: Autostart configuration from /etc/GUIKIT_autostart.ini
+- **Latest**: INI parser for embedded systems
 - **Latest**: Memory strategy with STOP-at-first-success behavior
 - **Latest**: Bootloader with automatic hardware detection
 - **Latest**: Config struct for memory strategy configuration
