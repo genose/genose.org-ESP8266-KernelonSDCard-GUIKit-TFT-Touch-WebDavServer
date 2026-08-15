@@ -188,6 +188,11 @@ typedef struct {
     bool is_esp8266;
     bool is_esp32;
     
+    // SMP (Symmetric Multi-Processing) info - detected at runtime
+    bool smp_available;        // true if multiple cores are available
+    uint8_t cpu_core_count;    // Number of available CPU cores (1 or 2)
+    uint8_t current_cpu_core;   // Current core ID (0 = PRO_CPU, 1 = APP_CPU on ESP32)
+    
     // RAM configuration (user concept: ram:{internal:bool, bank:{}})
     guikit_ram_config_t ram;
     

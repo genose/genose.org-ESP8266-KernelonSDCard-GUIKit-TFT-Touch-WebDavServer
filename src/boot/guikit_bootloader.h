@@ -172,6 +172,34 @@ typedef struct {
 } BootloaderState;
 
 // ============================================================================
+// SMP Detection
+// ============================================================================
+
+/**
+ * @brief Detect SMP (Symmetric Multi-Processing) capability at runtime
+ * 
+ * For ESP8266: Always single-core (no SMP)
+ * For ESP32: Detects dual-core capability
+ * 
+ * @param state Bootloader state to populate with SMP info
+ */
+void detect_smp_capability(BootloaderState* state);
+
+/**
+ * @brief Get current CPU core ID
+ * 
+ * @return Core ID (0 for ESP8266, 0 or 1 for ESP32)
+ */
+uint8_t get_current_cpu_core(void);
+
+/**
+ * @brief Get total CPU core count
+ * 
+ * @return Core count (1 for ESP8266, 2 for ESP32)
+ */
+uint8_t get_cpu_core_count(void);
+
+// ============================================================================
 // Bootloader Functions
 // ============================================================================
 

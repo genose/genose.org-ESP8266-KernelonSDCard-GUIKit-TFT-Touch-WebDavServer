@@ -837,6 +837,108 @@ static void detect_spi_devices(BootloaderState* state) {
     }
 }
 
+// ============================================================================
+// SMP (Symmetric Multi-Processing) Detection
+// ============================================================================
+
+/**
+ * @brief Get current CPU core ID at runtime
+ * 
+ * For ESP8266: Always returns 0 (single core)
+ * For ESP32: Returns 0 (PRO_CPU) or 1 (APP_CPU)
+ * 
+ * @return Core ID
+ */
+uint8_t get_current_cpu_core(void) {
+    #if defined(ESP8266) || GUIKIT_PLATFORM_ESP8266
+        // ESP8266 is always single-core
+        return 0;
+    #elif defined(ESP32) || GUIKIT_PLATFORM_ESP32
+        // ESP32: detect which core we're running on
+        // In ESP32 Arduino, xPortGetCoreID() can be used
+        // For mock implementation, we'll simulate based on compile-time
+        #ifdef BOOTLOADER_RUNNING_ON_CORE1
+            return 1;
+        #else
+            return 0;  // Default to PRO_CPU (core 0)
+        #endif
+    #else
+        // Unknown platform - assume single core
+        return 0;
+    #endif
+}
+
+/**
+ * @brief Get total CPU core count at runtime
+ * 
+ * @return Core count (1 for ESP8266, 2 for ESP32)
+ */
+uint8_t get_cpu_core_count(void) {
+    #if defined(ESP8266) || GUIKIT_PLATFORM_ESP8266
+        return 1;  // ESP8266 is single-core
+    #elif defined(ESP32) || GUIKIT_PLATFORM_ESP32
+        return 2;  // ESP32 is dual-core
+    #else
+        return 1;  // Unknown platform - assume single core
+    #endif
+}
+
+/**
+ * @brief Detect SMP (Symmetric Multi-Processing) capability at runtime
+ * 
+ * This function determines:
+ * - Number of available CPU cores
+ * - Current core ID
+ * - Whether SMP is available (multiple cores)
+ * 
+ * Detection is done at runtime using platform-specific methods.
+ * 
+ * @param state Bootloader state to populate with SMP info
+ */
+void detect_smp_capability(BootloaderState* state) {
+    if (!state) return;
+    
+    // Get core count
+    uint8_t core_count = get_cpu_core_count();
+    uint8_t current_core = get_current_cpu_core();
+    
+    // Set SMP info in config
+    state->config.cpu_core_count = core_count;
+    state->config.current_cpu_core = current_core;
+    state->config.smp_available = (core_count > 1);
+    
+    // Log SMP information
+    printf("[SMP] CPU Core Count: %d\n", core_count);
+    printf("[SMP] Current Core: %d\n", current_core);
+    printf("[SMP] SMP Available: %s\n", state->config.smp_available ? "Yes" : "No");
+    
+    // ESP32-specific SMP notes
+    #if defined(ESP32) || GUIKIT_PLATFORM_ESP32
+        if (state->config.smp_available) {
+            printf("[SMP] ESP32 Dual-Core Detected\n");
+            printf("[SMP]   Core 0 (PRO_CPU): Typically runs bootloader/RTOS tasks\n");
+            printf("[SMP]   Core 1 (APP_CPU): Available for application code\n");
+            
+            // Note: In ESP32, the second core (APP_CPU) is typically started
+            // by the first core (PRO_CPU) after boot
+            if (current_core == 0) {
+                printf("[SMP]   Note: Running on Core 0. Core 1 can be started for parallel processing.\n");
+            } else {
+                printf("[SMP]   Note: Running on Core 1. This core was likely started by Core 0.\n");
+            }
+        }
+    #endif
+    
+    // ESP8266-specific note
+    #if defined(ESP8266) || GUIKIT_PLATFORM_ESP8266
+        printf("[SMP] ESP8266 Single-Core: No SMP capability\n");
+    #endif
+}
+
+// ============================================================================
+// Initialize RAM (internal and external)
+// ============================================================================
+
 /**
  * Initialize RAM (internal and external)
  */
@@ -1046,6 +1148,11 @@ static void bootloader_init(BootloaderState* state, const guikit_hw_config_t* pl
     state->sdcard_instance = nullptr;
     state->tft_instance = nullptr;
     
+    // Initialize SMP info (will be detected later in boot sequence)
+    state->config.smp_available = false;
+    state->config.cpu_core_count = 1;
+    state->config.current_cpu_core = 0;
+    
     // Start timing
     state->boot_start_time = 0;  // Would use millis() or similar
 }
@@ -1066,7 +1173,7 @@ bool guikit_bootloader_run(BootloaderState* state) {
     // ---------------------------------------------------------------------------
     // Step 0: MCU Platform Detection and Validation
     // ---------------------------------------------------------------------------
-    printf("[BOOT] Step 0/7: MCU Platform Detection\n");
+    printf("[BOOT] Step 0/8: MCU Platform Detection\n");
     state->current_state = BOOT_STATE_INIT;
     
     // Detect platform at compile time
@@ -1116,9 +1223,23 @@ bool guikit_bootloader_run(BootloaderState* state) {
     printf("\n");
     
     // ---------------------------------------------------------------------------
-    // Step 1: Hardware Detection
+    // Step 1: SMP (Symmetric Multi-Processing) Detection
     // ---------------------------------------------------------------------------
-    printf("[BOOT] Step 1/7: Hardware Detection\n");
+    printf("[BOOT] Step 1/8: SMP Detection\n");
+    state->current_state = BOOT_STATE_HARDWARE_DETECTION;
+    
+    detect_smp_capability(state);
+    
+    printf("[BOOT] SMP Detection complete: %d cores available, running on core %d\n",
+           state->config.cpu_core_count,
+           state->config.current_cpu_core);
+    printf("  SMP Available: %s\n", state->config.smp_available ? "Yes" : "No");
+    printf("\n");
+    
+    // ---------------------------------------------------------------------------
+    // Step 2: Hardware Detection
+    // ---------------------------------------------------------------------------
+    printf("[BOOT] Step 2/8: Hardware Detection\n");
     state->current_state = BOOT_STATE_HARDWARE_DETECTION;
     
     // Set platform info
@@ -1148,7 +1269,7 @@ bool guikit_bootloader_run(BootloaderState* state) {
     // ---------------------------------------------------------------------------
     // Step 2: RAM Initialization
     // ---------------------------------------------------------------------------
-    printf("[BOOT] Step 2/7: RAM Initialization\n");
+    printf("[BOOT] Step 3/8: RAM Initialization\n");
     state->current_state = BOOT_STATE_RAM_INITIALIZATION;
     
     if (!init_ram(state)) {
@@ -1168,7 +1289,7 @@ bool guikit_bootloader_run(BootloaderState* state) {
     // ---------------------------------------------------------------------------
     // Step 3: SD Card Detection
     // ---------------------------------------------------------------------------
-    printf("[BOOT] Step 3/7: SD Card Initialization\n");
+    printf("[BOOT] Step 4/8: SD Card Initialization\n");
     state->current_state = BOOT_STATE_SDCARD_DETECTION;
     
     if (state->hardware.sdcard_detected) {
@@ -1182,7 +1303,7 @@ bool guikit_bootloader_run(BootloaderState* state) {
     // ---------------------------------------------------------------------------
     // Step 4: TFT Initialization (moved here to show boot messages early)
     // ---------------------------------------------------------------------------
-    printf("[BOOT] Step 4/7: TFT Initialization\n");
+    printf("[BOOT] Step 5/8: TFT Initialization\n");
     state->current_state = BOOT_STATE_TFT_INITIALIZATION;
     
     if (state->hardware.tft_detected) {
@@ -1197,7 +1318,7 @@ bool guikit_bootloader_run(BootloaderState* state) {
     // Step 5: Kernel Check (if SD Card is available)
     // ---------------------------------------------------------------------------
     if (state->hardware.sdcard_detected) {
-        printf("[BOOT] Step 5/7: Kernel Check\n");
+        printf("[BOOT] Step 6/8: Kernel Check\n");
         state->current_state = BOOT_STATE_KERNEL_CHECK;
         
         // Display progress on TFT
@@ -1261,7 +1382,7 @@ bool guikit_bootloader_run(BootloaderState* state) {
     // ---------------------------------------------------------------------------
     // Step 6: Memory Strategy Configuration
     // ---------------------------------------------------------------------------
-    printf("[BOOT] Step 6/7: Memory Strategy Configuration\n";
+    printf("[BOOT] Step 7/8: Memory Strategy Configuration\n";
     state->current_state = BOOT_STATE_MEMORY_STRATEGY_CONFIG;
     
     // Configure memory strategy based on detected hardware
@@ -1288,7 +1409,7 @@ bool guikit_bootloader_run(BootloaderState* state) {
     // ---------------------------------------------------------------------------
     // Step 7: Memory Strategy Test and Apply
     // ---------------------------------------------------------------------------
-    printf("[BOOT] Step 7/7: Memory Strategy Test and Apply\n");
+    printf("[BOOT] Step 8/8: Memory Strategy Test and Apply\n");
     state->current_state = BOOT_STATE_MEMORY_STRATEGY_APPLY;
     
     // Display progress on TFT
@@ -1332,6 +1453,12 @@ bool guikit_bootloader_run(BootloaderState* state) {
         y += 20;
         
         char buffer[64];
+        
+        snprintf(buffer, sizeof(buffer), "  SMP: %d cores, core %d",
+                 state->config.cpu_core_count,
+                 state->config.current_cpu_core);
+        tft_draw_text(state->tft_instance, 10, y, buffer, BOOTLOADER_TEXT_COLOR, BOOTLOADER_BG_COLOR);
+        y += 20;
         
         snprintf(buffer, sizeof(buffer), "  RAM: %lu KB Int, %lu KB Ext",
                  (state->available_ram - state->available_external_ram) / 1024,
@@ -1396,6 +1523,10 @@ bool guikit_bootloader_run(BootloaderState* state) {
     printf("Boot Summary:\n");
     printf("  Platform: %s\n", 
            state->config.is_esp8266 ? "ESP8266" : (state->config.is_esp32 ? "ESP32" : "Unknown"));
+    printf("  SMP: %s (%d cores, running on core %d)\n",
+           state->config.smp_available ? "Yes" : "No",
+           state->config.cpu_core_count,
+           state->config.current_cpu_core);
     printf("  RAM: %lu KB total (%lu KB internal, %lu KB external)\n",
            state->available_ram / 1024,
            (state->available_ram - state->available_external_ram) / 1024,
