@@ -21,6 +21,7 @@
 
 #include "png_converter.h"
 #include "task_switcher.h"
+#include "task_progress.h"
 #include "crc32.h"
 #include <string.h>
 #include <stdio.h>
@@ -266,6 +267,12 @@ uint8_t* png_decode_to_rgb(const char* png_path,
     
     // For demo purposes: create a gradient pattern
     // In real implementation, this would be actual PNG decoding
+    
+    // Calculate total pixels for progress
+    uint32_t total_pixels = width * height;
+    uint32_t pixels_processed = 0;
+    uint8_t last_percent = 0;
+    
     for (uint32_t y = 0; y < height; y++) {
         for (uint32_t x = 0; x < width; x++) {
             uint32_t idx = (y * width + x) * bytes_per_pixel;
@@ -280,8 +287,22 @@ uint8_t* png_decode_to_rgb(const char* png_path,
                 rgb_buffer[idx + 1] = g;
                 rgb_buffer[idx + 2] = b;
             }
+            
+            // Update progress display every ~1% or every 100 pixels (whichever comes first)
+            pixels_processed++;
+            if (total_pixels > 0) {
+                uint8_t current_percent = (uint8_t)((pixels_processed * 100) / total_pixels);
+                if (current_percent != last_percent) {
+                    last_percent = current_percent;
+                    // Use minimal progress display - no heap allocation
+                    task_progress_minimal("Converting PNG", current_percent);
+                }
+            }
         }
     }
+    
+    // Clear progress when done
+    task_progress_minimal_clear();
     
     // Calculate CRC32
     header->crc32 = crc32(0xFFFFFFFF, rgb_buffer, required_size) ^ 0xFFFFFFFF;
@@ -329,17 +350,22 @@ bool png_converter_run(const char* png_path) {
     printf("[PNG_CONVERTER] Input: %s\n", input_path);
     
     // Validate PNG file
+    task_progress_minimal("Validating PNG", 0);
     if (!png_is_valid_file(input_path)) {
         printf("[PNG_CONVERTER] ERROR: %s\n", png_converter_error_to_string(g_last_error));
+        task_progress_minimal_clear();
         return false;
     }
+    task_progress_minimal("Validating PNG", 50);
     
     // Get dimensions
     uint16_t width, height;
     if (!png_get_dimensions(input_path, &width, &height)) {
         printf("[PNG_CONVERTER] ERROR: %s\n", png_converter_error_to_string(g_last_error));
+        task_progress_minimal_clear();
         return false;
     }
+    task_progress_minimal("Validating PNG", 100);
     
     printf("[PNG_CONVERTER] Image: %ux%u\n", width, height);
     
@@ -348,14 +374,18 @@ bool png_converter_run(const char* png_path) {
     uint32_t required_size = width * height * bytes_per_pixel;
     
     // Allocate buffer
+    task_progress_minimal("Allocating memory", 0);
     uint8_t* rgb_buffer = (uint8_t*)malloc(required_size);
     if (!rgb_buffer) {
         g_last_error = PNG_ERR_MEMORY_ERROR;
         printf("[PNG_CONVERTER] ERROR: Failed to allocate %u bytes\n", required_size);
+        task_progress_minimal_clear();
         return false;
     }
+    task_progress_minimal("Allocating memory", 100);
     
     // Decode PNG to RGB
+    task_progress_minimal("Decoding PNG", 0);
     PngRgbHeader header;
     uint8_t* rgb_data = png_decode_to_rgb(input_path, &header, rgb_buffer, required_size);
     
@@ -369,11 +399,14 @@ bool png_converter_run(const char* png_path) {
     printf("[PNG_CONVERTER] CRC32: %08lX\n", header.crc32);
     
     // Save results for parent task
+    task_progress_minimal("Saving results", 0);
     if (!png_save_results(&header, rgb_data, header.data_size)) {
         printf("[PNG_CONVERTER] ERROR: Failed to save results\n");
+        task_progress_minimal_clear();
         free(rgb_buffer);
         return false;
     }
+    task_progress_minimal("Saving results", 100);
     
     printf("[PNG_CONVERTER] Results saved to SD card\n");
     printf("[PNG_CONVERTER] Header: %s\n", PNG_CONVERTER_DEFAULT_HEADER);

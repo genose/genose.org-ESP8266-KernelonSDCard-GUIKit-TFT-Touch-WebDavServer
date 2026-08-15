@@ -210,6 +210,48 @@ void png_converter_with_event_loop(const char* png_path) {
 
 ---
 
+## Progress Display
+
+The PNG converter includes **TFT progress display** for visual feedback during heavy operations. This is especially useful when running with limited RAM (~10KB available).
+
+### Progress Features
+
+- **Text-only display**: Shows "Converting PNG: XX%" on TFT
+- **Minimal RAM usage**: Uses only ~100 bytes of stack, no heap allocation
+- **Automatic updates**: Progress updates every ~1% during decoding
+- **Multiple stages**: Shows progress for validation, allocation, decoding, and saving
+
+### Progress Stages
+
+| Stage | Message | Description |
+|-------|---------|-------------|
+| 1 | "Validating PNG" | PNG signature and file validation |
+| 2 | "Allocating memory" | Memory allocation for RGB buffer |
+| 3 | "Decoding PNG" | PNG to RGB conversion (with percentage) |
+| 4 | "Saving results" | Writing results to SD card |
+
+### Usage
+
+The progress display automatically works when TFT is initialized. No additional setup is required:
+
+```c
+// Progress is shown automatically during:
+// - PNG validation
+// - Memory allocation
+// - PNG decoding (with percentage)
+// - Result saving
+
+// To use with custom TFT instance:
+#include "task_progress.h"
+
+task_progress_set_tft(my_tft_instance);
+png_converter_run("/images/test.png");
+```
+
+**Note:** Progress display uses `task_progress_minimal()` which requires no heap allocation and uses minimal stack space.
+
+---
+
 ## Implementation Details
 
 ### PNG Format Support

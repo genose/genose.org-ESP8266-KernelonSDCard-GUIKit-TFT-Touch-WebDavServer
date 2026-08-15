@@ -6,10 +6,11 @@
 3. [Bootloader](#bootloader)
 4. [Autostart Configuration](#autostart-configuration)
 5. [Task Switcher](#task-switcher)
-6. [Hardware Configuration](#hardware-configuration)
-7. [GUI Loading](#gui-loading)
-8. [Troubleshooting](#troubleshooting)
-9. [Command Reference](#command-reference)
+6. [Task Progress](#task-progress)
+7. [Hardware Configuration](#hardware-configuration)
+8. [GUI Loading](#gui-loading)
+9. [Troubleshooting](#troubleshooting)
+10. [Command Reference](#command-reference)
 
 ---
 
@@ -486,6 +487,97 @@ switch (err) {
 
 ---
 
+## Task Progress
+
+### Overview
+
+The **Task Progress** system provides lightweight progress display on TFT for heavy tasks, designed to work when only 10KB of RAM is available.
+
+### Key Features
+
+- **Minimal RAM usage**: TaskProgressState uses only 64 bytes total
+- **Stack-based**: Functions use only stack, no heap allocation
+- **TFT text display**: Shows "Message: XX%" on TFT at configurable positions
+- **Progress bar support**: Optional progress bar with configurable colors
+- **Multiple modes**: Full state tracking or minimal one-call display
+
+### RAM Usage
+
+| Component | Size | Type |
+|-----------|------|------|
+| TaskProgressState | 32 bytes | Static global |
+| Message buffer | 32 bytes | In state |
+| Stack usage (per call) | ~100 bytes | Stack |
+| **Total** | **~164 bytes** | No heap |
+
+### API Reference
+
+```c
+#include "task_progress.h"
+
+// Initialize with text only (minimum RAM)
+task_progress_init(false, true);
+
+// Initialize with custom position
+task_progress_init_custom(10, 200, 10, 220, true, true);
+
+// Start progress
+task_progress_start("Converting PNG", 100);
+
+// Update progress
+task_progress_update(45);
+
+// Minimal version (no state, no heap)
+task_progress_minimal("Processing", 75);
+
+// Clean up
+task_progress_minimal_clear();
+task_progress_done();
+
+// TFT instance management
+task_progress_set_tft(my_tft_pointer);
+void* tft = task_progress_get_tft();
+```
+
+### Configuration Constants
+
+```c
+// Positions
+#define PROGRESS_X 10
+#define PROGRESS_Y 200
+#define PROGRESS_BAR_X 10
+#define PROGRESS_BAR_Y 220
+#define PROGRESS_BAR_WIDTH 300
+#define PROGRESS_BAR_HEIGHT 20
+
+// Colors (16-bit RGB565)
+#define PROGRESS_BG_COLOR 0x0000    // Black
+#define PROGRESS_TEXT_COLOR 0xFFFF  // White
+#define PROGRESS_BAR_COLOR 0x07E0   // Green
+```
+
+### Integration with Heavy Tasks
+
+The PNG converter automatically uses task_progress_minimal() for progress display:
+
+```c
+// In png_converter_run():
+// 1. Validating PNG: 0%, 50%, 100%
+// 2. Allocating memory: 0%, 100%
+// 3. Decoding PNG: 0-100% (updates every ~1%)
+// 4. Saving results: 0%, 100%
+```
+
+### Files
+
+| File | Purpose |
+|------|---------|
+| `src/boot/task_progress.h` | Header with API and state |
+| `src/boot/task_progress.c` | Implementation with TFT functions |
+| `docs/PNG_CONVERTER.md` | PNG converter with progress integration |
+
+---
+
 ## Hardware Configuration
 
 ### Platform Detection
@@ -755,6 +847,26 @@ gui_memory_strategy_get_stats(&total_ram, &used_ram, &free_ram, &strategy);
 | `task_load_from_child(filename, buffer, size)` | Load data saved by child task |
 | `task_child_has_file(filename)` | Check if child saved a file |
 
+### Task Progress Commands
+
+| Function | Description |
+|----------|-------------|
+| `task_progress_get_state()` | Get global progress state pointer |
+| `task_progress_init(show_bar, show_text)` | Initialize progress display |
+| `task_progress_init_custom(x, y, bar_x, bar_y, show_bar, show_text)` | Initialize with custom position |
+| `task_progress_done()` | Shutdown and clear progress display |
+| `task_progress_start(message, max)` | Start progress with message and max value |
+| `task_progress_update(current)` | Update progress to current value |
+| `task_progress_update_msg(current, message)` | Update progress with new message |
+| `task_progress_inc()` | Increment progress by 1 |
+| `task_progress_complete()` | Complete progress (show 100%) |
+| `task_progress_text(message, percent)` | Show simple text progress |
+| `task_progress_text_clear()` | Clear text progress |
+| `task_progress_minimal(message, percent)` | Minimal progress (no state, stack only) |
+| `task_progress_minimal_clear()` | Clear minimal progress |
+| `task_progress_set_tft(tft)` | Set TFT instance for progress display |
+| `task_progress_get_tft()` | Get current TFT instance |
+
 ---
 
 ## File Reference
@@ -771,6 +883,7 @@ gui_memory_strategy_get_stats(&total_ram, &used_ram, &free_ram, &strategy);
 - `src/boot/README.md` - Bootloader documentation
 - `etc/GUIKIT_autostart.ini` - Example autostart configuration file
 - `docs/TASK_SWITCHER.md` - Task switcher documentation
+- `docs/PNG_CONVERTER.md` - PNG converter documentation
 
 ### Source Files
 
@@ -785,6 +898,8 @@ gui_memory_strategy_get_stats(&total_ram, &used_ram, &free_ram, &strategy);
 - `src/boot/task_switcher.c` - Task switcher implementation
 - `src/boot/task_switcher_example.h` - Task switcher example header
 - `src/boot/task_switcher_example.c` - Task switcher example implementation
+- `src/boot/task_progress.h` - Task progress display header
+- `src/boot/task_progress.c` - Task progress display implementation
 
 #### Memory Strategy
 - `src/gui/gui_memory_strategy.h` - Memory strategy header
