@@ -23,7 +23,8 @@ docs/discussion_analysis/
 ├── 14_ADVANCED_FEATURES.md           # Clipboard, gestures, history, undo/redo
 ├── 15_PROJECT_STRUCTURE.md           # Complete file structure and platformio.ini
 ├── 16_SCROLLABLE_UNION.md            # Union-based scrollable property with bitmask flags
-└── 17_GRADIENT_UNION.md              # Union-based gradient-color with accessors, RGB565 default
+├── 17_GRADIENT_UNION.md              # Union-based gradient-color with accessors, RGB565 default
+└── 18_GRADIENT_GROUP.md             # Gradient group with up to 6 independent gradients per widget
 ```
 
 ## Concept Categories
@@ -169,6 +170,8 @@ src/gui/
 ├── widget_scrollable.c         # Scrollable implementation
 ├── widget_gradient.h           # Union-based gradient color support
 ├── widget_gradient.c           # Gradient implementation
+├── widget_gradient_group.h     # Gradient group support (up to 6 per widget)
+├── widget_gradient_group.c     # Gradient group implementation
 ├── style.h                     # Draw style definitions
 ├── style.cpp                   # Style utility functions
 ├── renderer.h                  # Renderer declarations
@@ -245,3 +248,4 @@ Each file contains:
 - [x] Project structure extraction
 - [x] Scrollable union implementation (widget_scrollable.h/c)
 - [x] Gradient union implementation (widget_gradient.h/c)
+- [x] Gradient group implementation (widget_gradient_group.h/c)
