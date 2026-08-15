@@ -24,7 +24,8 @@ docs/discussion_analysis/
 ├── 15_PROJECT_STRUCTURE.md           # Complete file structure and platformio.ini
 ├── 16_SCROLLABLE_UNION.md            # Union-based scrollable property with bitmask flags
 ├── 17_GRADIENT_UNION.md              # Union-based gradient-color with accessors, RGB565 default
-└── 18_GRADIENT_GROUP.md             # Gradient group with up to 6 independent gradients per widget
+├── 18_GRADIENT_GROUP.md             # Gradient group with up to 6 independent gradients per widget
+└── 19_TEXT_EDITOR.md                # Full-featured text editor evolved from text field
 ```
 
 ## Concept Categories
@@ -172,6 +173,8 @@ src/gui/
 ├── widget_gradient.c           # Gradient implementation
 ├── widget_gradient_group.h     # Gradient group support (up to 6 per widget)
 ├── widget_gradient_group.c     # Gradient group implementation
+├── text_editor.h               # Full-featured text editor
+├── text_editor.c               # Text editor implementation
 ├── style.h                     # Draw style definitions
 ├── style.cpp                   # Style utility functions
 ├── renderer.h                  # Renderer declarations
@@ -249,3 +252,4 @@ Each file contains:
 - [x] Scrollable union implementation (widget_scrollable.h/c)
 - [x] Gradient union implementation (widget_gradient.h/c)
 - [x] Gradient group implementation (widget_gradient_group.h/c)
+- [x] Text editor implementation (text_editor.h/c)
