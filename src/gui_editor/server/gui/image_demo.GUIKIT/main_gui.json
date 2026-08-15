@@ -1,0 +1,106 @@
+{
+  "version": "1.0",
+  "name": "Image Demo",
+  "size": {
+    "width": 320,
+    "height": 240
+  },
+  "background": "#1E1E1E",
+  "theme": "dark",
+  "assets": [
+    "assets/images/README.md"
+  ],
+  "widgets": [
+    {
+      "id": "title",
+      "type": "label",
+      "x": 20,
+      "y": 10,
+      "width": 280,
+      "height": 24,
+      "text": "IMAGE WIDGET DEMO",
+      "text_size": 18,
+      "text_color": "#FFFFFF",
+      "text_align": "center",
+      "background": "#0E639C"
+    },
+    {
+      "id": "subtitle",
+      "type": "label",
+      "x": 20,
+      "y": 40,
+      "width": 280,
+      "height": 18,
+      "text": "Add your BMP files to assets/images/",
+      "text_size": 12,
+      "text_color": "#D4D4D4",
+      "text_align": "center"
+    },
+    {
+      "id": "instructions",
+      "type": "label",
+      "x": 20,
+      "y": 65,
+      "width": 280,
+      "height": 40,
+      "text": "Example: Add image widget with source:/assets/images/your_image.bmp",
+      "text_size": 10,
+      "text_color": "#858585",
+      "text_align": "center",
+      "multiline": true,
+      "wrap": true
+    },
+    {
+      "id": "example_image",
+      "type": "image",
+      "x": 100,
+      "y": 120,
+      "width": 120,
+      "height": 120,
+      "source": "/assets/images/sample.bmp",
+      "format": "bmp",
+      "scale_mode": "center",
+      "transparent_color": "#FF00FF",
+      "border_color": "#3E3E42",
+      "border_width": 1
+    },
+    {
+      "id": "example_stretched",
+      "type": "image",
+      "x": 10,
+      "y": 120,
+      "width": 80,
+      "height": 80,
+      "source": "/assets/images/sample.bmp",
+      "format": "bmp",
+      "scale_mode": "stretch",
+      "border_color": "#1177BB",
+      "border_width": 1
+    },
+    {
+      "id": "example_tiled",
+      "type": "image",
+      "x": 220,
+      "y": 120,
+      "width": 80,
+      "height": 80,
+      "source": "/assets/images/sample.bmp",
+      "format": "bmp",
+      "scale_mode": "tile",
+      "border_color": "#4CAF50",
+      "border_width": 1
+    },
+    {
+      "id": "note",
+      "type": "label",
+      "x": 20,
+      "y": 220,
+      "width": 280,
+      "height": 18,
+      "text": "Left: Stretch | Center: Native | Right: Tile",
+      "text_size": 10,
+      "text_color": "#D4D4D4",
+      "text_align": "center"
+    }
+  ]
+}

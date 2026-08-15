@@ -225,6 +225,8 @@ The GUIKit provides a **CSS-like widget system** with the following types:
 | `BUTTON` | Clickable button | Text, callback, pressed state |
 | `LABEL` | Text display | Static or dynamic text |
 | `SLIDER` | Slider control | Value range, callback |
+| `IMAGE` | Bitmap image | Path, scaling, transparency |
+| `SPRITE` | Sprite/Offscreen | Cached rendering, animation |
 
 ### Basic Widget Structure
 
@@ -241,6 +243,126 @@ struct t_widget_base {
     uint8_t children_count;
     bool dirty;                 // Needs redrawing
 };
+```
+
+### IMAGE Widget
+
+Displays bitmap images from SD card or embedded resources.
+
+**JSON Definition:**
+```json
+{
+  "id": "my_image",
+  "type": "image",
+  "x": 10,
+  "y": 10,
+  "width": 100,
+  "height": 100,
+  "source": "/assets/images/logo.bmp",
+  "format": "bmp",
+  "transparent_color": "#FF00FF",
+  "scale_mode": "aspect_fit",
+  "cache": false
+}
+```
+
+**Properties:**
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `source` | string | required | Path to image file on SD card |
+| `format` | string | `"bmp"` | Image format: bmp, raw |
+| `transparent_color` | string | none | Color to treat as transparent (hex) |
+| `scale_mode` | string | `"none"` | stretch, aspect_fit, aspect_fill, tile, center, none |
+| `cache` | boolean | `false` | Keep image in RAM after loading |
+| `rotation` | integer | `0` | Rotation in degrees (0, 90, 180, 270) |
+| `flip_h` | boolean | `false` | Flip horizontally |
+| `flip_v` | boolean | `false` | Flip vertically |
+
+**C Structure:**
+```c
+struct t_widget_image {
+    t_widget_base base;
+    char source_path[256];       // Path on SD card
+    uint16_t* pixel_buffer;      // Cached pixels (RGBA565)
+    uint16_t transparent;        // Transparent color value
+    IMAGE_SCALE_MODE scale_mode; // Scaling behavior
+    bool cached;                // Already loaded
+    bool flip_h;                // Horizontal flip
+    bool flip_v;                // Vertical flip
+    uint8_t rotation;           // 0, 1, 2, 3 = 0°, 90°, 180°, 270°
+};
+```
+
+**Scale Modes:**
+
+| Mode | Behavior |
+|------|----------|
+| `stretch` | Fill entire widget bounds, ignore aspect ratio |
+| `aspect_fit` | Fit within bounds, maintain aspect, letterbox |
+| `aspect_fill` | Fill bounds, maintain aspect, crop edges |
+| `tile` | Repeat image to fill area |
+| `center` | Center image at native size |
+| `none` | Draw at top-left at native size |
+
+**Supported Formats:**
+
+| Format | Support | Notes |
+|--------|---------|-------|
+| **BMP** | ✅ Full | 24-bit, 16-bit (565), 8-bit with palette |
+| **RAW** | ✅ Full | Direct RGBA565 pixel data |
+| **JPG** | ⚠️ Partial | Requires additional library |
+| **PNG** | ❌ None | Too complex for ESP8266 |
+
+**Memory Considerations:**
+
+| Image Size | Memory Required |
+|------------|-----------------|
+| 100x100 | 20,000 bytes (20KB) |
+| 200x200 | 80,000 bytes (80KB) |
+| 320x240 | 153,600 bytes (150KB) |
+
+**ESP8266 RAM:** ~80KB available for widgets
+
+**Recommendations:**
+- ✅ Cache images < 100x100
+- ⚠️ Load images 100-200px on demand
+- ❌ Avoid caching full-screen images
+- ✅ Use sprites for complex compositing
+
+**BMP Requirements:**
+- Bit depth: 24-bit, 16-bit (565), or 8-bit with palette
+- Color order: BGR (standard BMP)
+- Compression: None (uncompressed only)
+- Origin: Bottom-left (can be configured)
+
+**Example with Image:**
+```json
+{
+  "version": "1.0",
+  "name": "ImageDemo",
+  "size": { "width": 320, "height": 240 },
+  "background": "#000000",
+  "assets": ["assets/images/logo.bmp", "assets/images/bg.bmp"],
+  "widgets": [
+    {
+      "id": "background",
+      "type": "image",
+      "x": 0, "y": 0,
+      "width": 320, "height": 240,
+      "source": "/assets/images/bg.bmp",
+      "scale_mode": "stretch"
+    },
+    {
+      "id": "logo",
+      "type": "image",
+      "x": 100, "y": 50,
+      "width": 120, "height": 120,
+      "source": "/assets/images/logo.bmp",
+      "transparent_color": "#FF00FF"
+    }
+  ]
+}
 ```
 
 ---

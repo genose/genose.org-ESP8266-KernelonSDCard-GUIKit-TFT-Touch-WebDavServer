@@ -1,0 +1,18 @@
+{
+  "name": "Image Demo",
+  "description": "Demonstration of IMAGE widget rendering on TFT display",
+  "author": "GUIKit System",
+  "version": "1.0.0",
+  "created": "2026-08-15T00:00:00Z",
+  "modified": "2026-08-15T00:00:00Z",
+  "gui_files": ["main_gui.json"],
+  "scripts": [],
+  "styles": [],
+  "dependencies": [],
+  "category": "demo",
+  "type": "demo",
+  "features": ["image_widget", "bmp_rendering", "transparency"],
+  "require_auth": false,
+  "min_width": 320,
+  "min_height": 240
+}

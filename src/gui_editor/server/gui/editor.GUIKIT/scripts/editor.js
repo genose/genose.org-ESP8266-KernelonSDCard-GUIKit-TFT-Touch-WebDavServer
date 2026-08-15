@@ -126,8 +126,23 @@ var FileTypes = {
     'txt': { icon: 'T', color: '#FFFFFF', editor: 'text' },
     'md': { icon: 'MD', color: '#90EE90', editor: 'text' },
     'lua': { icon: 'L', color: '#0000FF', editor: 'code' },
+    'bmp': { icon: '🖼️', color: '#00FFFF', editor: 'binary' },
+    'png': { icon: '🖼️', color: '#00FFFF', editor: 'binary' },
+    'jpg': { icon: '🖼️', color: '#00FFFF', editor: 'binary' },
+    'jpeg': { icon: '🖼️', color: '#00FFFF', editor: 'binary' },
+    'raw': { icon: '🖼️', color: '#00FFFF', editor: 'binary' },
     'unknown': { icon: '?', color: '#808080', editor: 'text' }
 };
+
+// Image scale modes
+var ImageScaleModes = [
+    { value: 'none', label: 'None (native)' },
+    { value: 'stretch', label: 'Stretch' },
+    { value: 'aspect_fit', label: 'Aspect Fit' },
+    { value: 'aspect_fill', label: 'Aspect Fill' },
+    { value: 'tile', label: 'Tile' },
+    { value: 'center', label: 'Center' }
+];
 
 // ============================================================================
 // Initialization
@@ -1268,6 +1283,256 @@ function formatJSON(content) {
     }
 }
 
+/**
+ * Check if a file is an image
+ */
+function isImageFile(filename) {
+    var ext = getFileType(filename);
+    return ['bmp', 'png', 'jpg', 'jpeg', 'raw'].indexOf(ext) !== -1;
+}
+
+/**
+ * Generate an image widget JSON snippet
+ * @param {string} id - Widget ID
+ * @param {number} x - X position
+ * @param {number} y - Y position
+ * @param {number} width - Width
+ * @param {number} height - Height
+ * @param {string} source - Image source path
+ * @param {string} scaleMode - Scaling mode
+ * @param {string} transparentColor - Transparent color (optional)
+ * @returns {string} JSON snippet for image widget
+ */
+function generateImageWidget(id, x, y, width, height, source, scaleMode, transparentColor) {
+    var widget = {
+        id: id,
+        type: 'image',
+        x: x,
+        y: y,
+        width: width,
+        height: height,
+        source: source,
+        format: 'bmp'
+    };
+    
+    if (scaleMode) {
+        widget.scale_mode = scaleMode;
+    }
+    
+    if (transparentColor) {
+        widget.transparent_color = transparentColor;
+    }
+    
+    return JSON.stringify(widget, null, 2);
+}
+
+/**
+ * Insert image widget into current file
+ */
+function insertImageWidget(id, x, y, width, height, source, scaleMode, transparentColor) {
+    if (!EditorState.currentFile) {
+        updateStatus('Error: No file open');
+        return;
+    }
+    
+    var imageWidget = generateImageWidget(id, x, y, width, height, source, scaleMode, transparentColor);
+    
+    // Insert at cursor position or at end
+    var cursorPos = EditorState.ui.fileEditor.selection ? EditorState.ui.fileEditor.selection.start : EditorState.fileContent.length;
+    var before = EditorState.fileContent.substring(0, cursorPos);
+    var after = EditorState.fileContent.substring(cursorPos);
+    
+    // Add comma if needed (assuming we're in a widgets array)
+    if (before.trim().endsWith('{')) {
+        // At start of object, add after opening brace
+        EditorState.fileContent = before + '\n    ' + imageWidget + ',\n' + after;
+    } else if (before.trim().endsWith(',')) {
+        // After existing widget
+        EditorState.fileContent = before + '\n    ' + imageWidget + ',\n' + after;
+    } else {
+        // Default: add at end
+        EditorState.fileContent = before + imageWidget + '\n' + after;
+    }
+    
+    EditorState.ui.fileEditor.text = EditorState.fileContent;
+    EditorState.isModified = true;
+    
+    if (EditorState.currentFile) {
+        EditorState.currentFile.content = EditorState.fileContent;
+        EditorState.currentFile.isModified = true;
+    }
+    
+    updateTabBar();
+    updateStatus('Inserted image widget: ' + id);
+}
+
+/**
+ * Create a new image widget via dialog
+ */
+function editor_add_image(widget, event) {
+    // For now, use defaults
+    var id = prompt('Image widget ID:', 'image_' + Date.now());
+    
+    if (!id || id.trim() === '') {
+        updateStatus('Image creation cancelled');
+        return;
+    }
+    
+    var source = prompt('Image source path:', '/assets/images/' + id + '.bmp');
+    
+    if (!source || source.trim() === '') {
+        updateStatus('Image creation cancelled');
+        return;
+    }
+    
+    // Calculate center position
+    var x = 100;
+    var y = 100;
+    var width = 100;
+    var height = 100;
+    
+    // Ask for dimensions
+    var dims = prompt('Dimensions (width,height):', '100,100');
+    if (dims) {
+        var parts = dims.split(',');
+        if (parts.length >= 2) {
+            width = parseInt(parts[0].trim()) || 100;
+            height = parseInt(parts[1].trim()) || 100;
+        }
+    }
+    
+    // Calculate center
+    x = (238 - width) / 2;
+    y = (188 - height) / 2;
+    
+    // Ask for scale mode
+    var scaleMode = prompt('Scale mode (none, stretch, aspect_fit, aspect_fill, tile, center):', 'none');
+    
+    // Ask for transparent color
+    var transparentColor = prompt('Transparent color (hex, e.g., #FF00FF) (leave blank for none):', '');
+    
+    insertImageWidget(id, x, y, width, height, source, scaleMode, transparentColor);
+}
+
+/**
+ * Upload/upload image file to project
+ */
+function editor_upload_image(widget, event) {
+    // Show file upload dialog (simulated)
+    updateStatus('Image upload: Select BMP file from your computer');
+    
+    // In real implementation, this would open a file dialog
+    // For now, we'll simulate by creating a placeholder
+    
+    var imagePath = prompt('Enter image path (relative to project):', 'assets/images/new_image.bmp');
+    
+    if (!imagePath) {
+        return;
+    }
+    
+    // Check if this is a valid image file
+    var filename = imagePath.substring(imagePath.lastIndexOf('/') + 1);
+    var ext = filename.substring(filename.lastIndexOf('.') + 1).toLowerCase();
+    
+    if (!isImageFile(filename)) {
+        updateStatus('Error: Not a supported image format (bmp, png, jpg, raw)');
+        return;
+    }
+    
+    // Ensure assets directory exists
+    var assetsPath = EditorState.currentProjectPath + '/assets/images';
+    
+    if (typeof FileSystem !== 'undefined') {
+        try {
+            FileSystem.mkdir(assetsPath);
+            
+            // Create a placeholder BMP file (1x1 pixel)
+            // In real implementation, this would be the uploaded file
+            var bmpData = create1x1Bmp(0xFF, 0x00, 0xFF); // Magenta pixel
+            FileSystem.write(assetsPath + '/' + filename, bmpData);
+            
+            updateStatus('Created placeholder image: ' + imagePath);
+            refreshProjectTree();
+        } catch (error) {
+            updateStatus('Error creating image: ' + error.message);
+        }
+    } else {
+        updateStatus('Image upload simulated: ' + imagePath);
+    }
+}
+
+/**
+ * Create a minimal 1x1 BMP file data (for placeholder)
+ * BMP format: 54-byte header + pixel data
+ */
+function create1x1Bmp(r, g, b) {
+    // BMP header (54 bytes)
+    var header = new Uint8Array(54);
+    
+    // Signature 'BM' (2 bytes)
+    header[0] = 0x42; // 'B'
+    header[1] = 0x4D; // 'M'
+    
+    // File size: 54 + 4 (for 1x1 32-bit) = 58
+    header[2] = 58;
+    header[3] = 0;
+    header[4] = 0;
+    header[5] = 0;
+    
+    // Reserved (4 bytes)
+    header[6] = 0; header[7] = 0; header[8] = 0; header[9] = 0;
+    
+    // Data offset: 54
+    header[10] = 54; header[11] = 0; header[12] = 0; header[13] = 0;
+    
+    // DIB header size: 40 bytes
+    header[14] = 40; header[15] = 0; header[16] = 0; header[17] = 0;
+    
+    // Width: 1
+    header[18] = 1; header[19] = 0; header[20] = 0; header[21] = 0;
+    
+    // Height: 1
+    header[22] = 1; header[23] = 0; header[24] = 0; header[25] = 0;
+    
+    // Planes: 1
+    header[26] = 1; header[27] = 0;
+    
+    // Bit count: 32 (for simplicity)
+    header[28] = 32; header[29] = 0;
+    
+    // Compression: BI_RGB (0)
+    header[30] = 0; header[31] = 0; header[32] = 0; header[33] = 0;
+    
+    // Image size: 4 bytes
+    header[34] = 4; header[35] = 0; header[36] = 0; header[37] = 0;
+    
+    // X pixels per meter: 0 (not used)
+    header[38] = 0; header[39] = 0; header[40] = 0; header[41] = 0;
+    
+    // Y pixels per meter: 0 (not used)
+    header[42] = 0; header[43] = 0; header[44] = 0; header[45] = 0;
+    
+    // Colors used: 0 (for 32-bit)
+    header[46] = 0; header[47] = 0; header[48] = 0; header[49] = 0;
+    
+    // Important colors: 0
+    header[50] = 0; header[51] = 0; header[52] = 0; header[53] = 0;
+    
+    // Pixel data: BGRX format (little-endian)
+    var pixel = new Uint8Array(4);
+    pixel[0] = b;  // Blue
+    pixel[1] = g;  // Green
+    pixel[2] = r;  // Red
+    pixel[3] = 0;  // Alpha (ignored)
+    
+    // Combine header and pixel
+    var result = new Uint8Array(58);
+    result.set(header, 0);
+    result.set(pixel, 54);
+    
+    return result;
+}
+
 // ============================================================================
 // Global API
 // ============================================================================
@@ -1322,7 +1587,9 @@ function editor_help(widget, event) {
         '  openProject             Open existing project\n' +
         '  save                    Save current file\n' +
         '  saveAll                 Save all open files\n' +
-        '  connectWebDAV           Connect to WebDAV server\n\n' +
+        '  connectWebDAV           Connect to WebDAV server\n' +
+        '  addImage                Add image widget to GUI\n' +
+        '  uploadImage             Upload image to project\n\n' +
         
         'FEATURES:\n' +
         '  - Project Management: Create, open, browse projects\n' +
@@ -1330,13 +1597,24 @@ function editor_help(widget, event) {
         '  - Context Menu: Long press (~2sec) for Copy/Cut/Paste/Select All\n' +
         '  - Temp Buffers: Auto-saved to /tmp/filename_edit.txt\n' +
         '  - WebDAV: User home directory as root\n' +
-        '  - Templates: empty, basic_ui project templates\n\n' +
+        '  - Templates: empty, basic_ui project templates\n' +
+        '  - Image Support: Add image widgets, upload BMP files\n\n' +
+        
+        'IMAGE WIDGET SUPPORT:\n' +
+        '  - Type: image\n' +
+        '  - Source: Path to BMP file (e.g., /assets/images/logo.bmp)\n' +
+        '  - Scale Modes: none, stretch, aspect_fit, aspect_fill, tile, center\n' +
+        '  - Transparency: transparent_color property (hex format)\n' +
+        '  - Formats: BMP (24-bit, 16-bit 565, 8-bit)\n' +
+        '  - Caching: cache property (boolean, default false)\n\n' +
         
         'EXAMPLES:\n' +
         '  GUIKitEditor.init();\n' +
         '  GUIKitEditor.newProject();\n' +
         '  GUIKitEditor.openFile("/home/user/projects/MyApp.GUIKIT/main_gui.json");\n' +
-        '  GUIKitEditor.saveFile(path, content);\n\n' +
+        '  GUIKitEditor.saveFile(path, content);\n' +
+        '  GUIKitEditor.addImage("logo", 50, 50, 100, 100, "/assets/images/logo.bmp");\n' +
+        '  GUIKitEditor.uploadImage();\n\n' +
         
         'KEYBINDINGS:\n' +
         '  Long Press: Show context menu\n' +
@@ -1345,7 +1623,31 @@ function editor_help(widget, event) {
         
         'PROJECT TEMPLATES:\n' +
         '  empty      - Blank project (main_gui.json, project.meta.json)\n' +
-        '  basic_ui   - Button + label example (main_gui.json, scripts/main.js)\n';
+        '  basic_ui   - Button + label example (main_gui.json, scripts/main.js)\n' +
+        '  image_demo - Image widget demonstration\n\n' +
+        
+        'IMAGE SCALE MODES:\n' +
+        '  none        - Native size, top-left\n' +
+        '  stretch     - Fill bounds, ignore aspect\n' +
+        '  aspect_fit - Fit within bounds, letterbox\n' +
+        '  aspect_fill- Fill bounds, crop edges\n' +
+        '  tile        - Repeat to fill area\n' +
+        '  center      - Center at native size\n' +
+        
+        'IMAGE EXAMPLE JSON:\n' +
+        '  {\n' +
+        '    "id": "my_image",\n' +
+        '    "type": "image",\n' +
+        '    "x": 10, "y": 10,\n' +
+        '    "width": 100, "height": 100,\n' +
+        '    "source": "/assets/images/logo.bmp",\n' +
+        '    "scale_mode": "aspect_fit",\n' +
+        '    "transparent_color": "#FF00FF"\n' +
+        '  }\n\n' +
+        
+        'BMP CONVERSION:\n' +
+        '  convert input.png -depth 16 -colorspace RGB output.bmp\n' +
+        '  (ImageMagick command for 16-bit BMP)\n';
     
     updateStatus('Help: See console for details');
     
@@ -1409,6 +1711,13 @@ GUIKitEditor.version = editor_version;
 GUIKitEditor.showHelp = editor_help;
 GUIKitEditor.showVersion = editor_version;
 GUIKitEditor.processArgs = processEditorArgs;
+
+// Add image support to GUIKitEditor API
+GUIKitEditor.addImage = editor_add_image;
+GUIKitEditor.uploadImage = editor_upload_image;
+GUIKitEditor.generateImageWidget = generateImageWidget;
+GUIKitEditor.insertImageWidget = insertImageWidget;
+GUIKitEditor.isImageFile = isImageFile;
 
 // Make available globally
 if (typeof window !== 'undefined') {
