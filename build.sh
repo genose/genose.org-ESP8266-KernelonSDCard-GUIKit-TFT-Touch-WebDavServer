@@ -1,9 +1,11 @@
 #!/bin/bash
 
 # ============================================================================
-# GUIKit ESP8266 Build Script
+# GUIKit ESP8266/ESP32 Build Script
 # 
-# Builds bootloader, kernel, and prepares SD card for ESP8266 GUIKit system
+# Builds bootloader, kernel, and prepares SD card for GUIKit system.
+# Supports ESP8266 and ESP32 with SMP detection, RAM freeze/thaw, 
+# task switching, and WebDAV support.
 # 
 # USAGE:
 #   ./build.sh [command] [options]
@@ -16,7 +18,9 @@
 #   gui           Build GUI projects
 #   clean         Clean build artifacts
 #   flash         Flash bootloader and kernel
+#   freeze        Build and test RAM freeze/thaw system
 #   help          Show this help message
+#   version       Show version information
 #   
 # OPTIONS:
 #   --debug       Enable verbose output
@@ -24,16 +28,18 @@
 #   --port PORT   Specify serial port (default: auto-detect)
 #   --sd PATH     Specify SD card mount point (default: ./sdcard)
 #   --no-clean    Skip cleanup before build
+#   --platform    Specify platform: esp8266 or esp32 (default: esp8266)
 #   
 # EXAMPLES:
 #   ./build.sh all                    # Build everything
 #   ./build.sh bootloader --upload   # Build and upload bootloader
 #   ./build.sh sdcard --sd /Volumes/SDCARD  # Prepare actual SD card
 #   ./build.sh kernel --debug        # Build kernel with debug output
+#   ./build.sh all --platform esp32   # Build for ESP32
 #   
 # DEPENDENCIES:
 #   - PlatformIO (https://platformio.org/)
-#   - ESP8266 toolchain
+#   - ESP8266/ESP32 toolchain
 #   - TFT_eSPI library
 #   - XPT2046_Touchscreen library
 #   - ESPWebDAV library
@@ -81,7 +87,8 @@ show_help() {
 $SCRIPT_NAME v$SCRIPT_VERSION
 
 A comprehensive build system for GUIKit project supporting both ESP8266 and ESP32
-with dual logging (serial + TFT) and SMP detection.
+with dual logging (serial + TFT), SMP detection, RAM freeze/thaw, task switching,
+and WebDAV support.
 
 USAGE:
   $(basename "$0") [command] [options]
@@ -94,12 +101,13 @@ COMMANDS:
   gui           Build GUI projects only
   clean         Clean all build artifacts
   flash         Flash bootloader and kernel to device
+  freeze        Build and test RAM freeze/thaw system
   help          Show this help message
   version       Show version information
 
 PLATFORM OPTIONS:
   --platform PLATFORM  Specify target platform: esp8266 or esp32 (default: esp8266)
-                      ESP8266: Single-core, ~80KB RAM
+                      ESP8266: Single-core, ~80KB RAM, no external RAM
                       ESP32:   Dual-core (SMP), ~320KB RAM, PSRAM support
 
 BUILD OPTIONS:
@@ -131,21 +139,52 @@ EXAMPLES:
   $(basename "$0") clean                            # Clean all artifacts
 
 BUILD PROCESS:
-  1. Bootloader (Flash): Minimal loader that initializes SD and loads kernel
-  2. Kernel (SD Card): Full system with GUIKit, WebDAV, HTTP
-  3. SD Card Structure: Creates /system, /gui, /etc, /home directories
-  4. GUI Projects: Copies .GUIKIT projects to /gui/ and /home/admin/projects/
+  1. Bootloader (Flash): Minimal loader with hardware detection (SPI, RAM, SD, TFT)
+  2. Autostart Config: Reads /etc/GUIKIT_autostart.ini for kernel path and settings
+  3. Memory Strategy: Auto-configures external RAM, SD swap, internal RAM
+  4. Kernel (SD Card): Full system with GUIKit, WebDAV, HTTP server
+  5. SD Card Structure: Creates /system, /gui, /etc, /home, /tmp directories
+  6. GUI Projects: Copies .GUIKIT projects to /gui/ and /home/admin/projects/
+
+FEATURES:
+  Super fast boot with RAM freeze/thaw from SD card
+  Dual logging to serial and TFT display
+  SMP detection for ESP32 dual-core support
+  Autostart configuration via /etc/GUIKIT_autostart.ini
+  Memory strategy: External RAM -> SD swap -> Internal RAM (STOP at first success)
+  Task switcher: Single-level context switching (A -> B -> back to A)
+  WebDAV support for remote file access and user authentication
+  Project structure: (project_name).GUIKIT directories
 
 DEPENDENCIES:
   - PlatformIO CLI: https://platformio.org/install/cli
   - Python 3.x
   - Git
+  - C++11 compiler
 
 HARDWARE:
-  - ESP8266 (NodeMCU v2 recommended)
-  - 3.2\" TFT LCD with ST7789 controller
-  - XPT2046 touchscreen controller
-  - MicroSD card (FAT32 formatted)
+  - ESP8266 (NodeMCU v2/v3) or ESP32
+  - 3.2" TFT LCD with ST7789 controller (or compatible)
+  - XPT2046 touchscreen controller (or compatible)
+  - MicroSD card (FAT32 formatted, 4GB+ recommended)
+  - Optional: SPI SRAM (23LC1024) or PSRAM for external memory
+
+SD CARD STRUCTURE (created by sdcard command):
+  /system/              - System binaries (kernel.bin, bootloader.bin)
+  /gui/                 - GUI projects (.GUIKIT directories)
+  /gui/chooser.GUIKIT/  - Default GUI chooser/launcher
+  /etc/                 - Configuration files
+  /etc/GUIKIT_autostart.ini - Boot configuration
+  /etc/user.skel/       - User skeleton (projects/, README.md)
+  /home/                - User home directories
+  /home/admin/         - Default admin user
+  /home/admin/projects/ - User projects
+  /tmp/                 - Temporary files (task communication, freeze state)
+
+TASK SWITCHING:
+  Freeze Task A to SD card, load Task B, run B, free B, restore A from SD.
+  Communication via files in /tmp/task_comm/.
+  Example: JPEG to RGB conversion - Task B saves RGB, Task A loads it after restore.
 
 EOF
 }

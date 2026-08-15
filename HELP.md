@@ -5,10 +5,11 @@
 2. [Memory Strategy](#memory-strategy)
 3. [Bootloader](#bootloader)
 4. [Autostart Configuration](#autostart-configuration)
-5. [Hardware Configuration](#hardware-configuration)
-6. [GUI Loading](#gui-loading)
-7. [Troubleshooting](#troubleshooting)
-8. [Command Reference](#command-reference)
+5. [Task Switcher](#task-switcher)
+6. [Hardware Configuration](#hardware-configuration)
+7. [GUI Loading](#gui-loading)
+8. [Troubleshooting](#troubleshooting)
+9. [Command Reference](#command-reference)
 
 ---
 
@@ -294,6 +295,197 @@ The autostart configuration is loaded in the boot sequence after SD Card initial
 
 ---
 
+## Task Switcher
+
+### Overview
+
+The **Task Switcher** implements single-level context switching with RAM freeze/thaw, allowing you to temporarily switch from one task to another and then restore the original task exactly as it was.
+
+This is useful for:
+- Heavy operations (JPEG decoding, complex calculations)
+- Specialized utilities (file browsers, settings menus)
+- Modal dialogs that need full RAM
+- Any operation requiring dedicated RAM resources
+
+### How It Works
+
+**Single-Level Switching Pattern:**
+
+```
+Task A (GUI with state) 
+  → task_switch_to("/kernel/converter.bin")
+  → Freeze A RAM to SD card
+  → Load Task B into RAM
+  → Run Task B
+  → User clicks "Back" OR B calls task_restore()
+  → FREE Task B (not saved)
+  → RESTORE Task A from SD card
+  → Task A resumes with FULL original state
+```
+
+**Key Points:**
+- Only ONE frozen task at a time (A → B → back to A)
+- Task B is **freed** (discarded) when returning to A
+- Task A is **defrosted** (fully restored) from SD card
+- Tasks A and B are responsible for their own standard methods
+- Communication between tasks via SD card files
+
+### Memory Requirements
+
+- **SD card required** for storing frozen state
+- **80%+ free RAM** required to switch (configurable)
+- Task B runs in the same RAM space that Task A occupied
+
+### API Reference
+
+```c
+#include "task_switcher.h"
+
+// Initialize (in setup/main)
+task_switcher_init();
+
+// Switch from current task to new task
+bool success = task_switch_to("/kernel/jpeg_converter.bin");
+// Does NOT return if successful - new task starts running
+
+// Restore parent task (in Task B or "Back" button handler)
+bool success = task_restore();
+// Does NOT return if successful - parent task resumes
+
+// Check if we have a frozen parent
+if (task_has_frozen_parent()) {
+    // We are Task B (child task)
+}
+
+// Get error information
+TaskSwitcherError err = task_switcher_get_error();
+const char* msg = task_switcher_error_to_string(err);
+```
+
+### Task Communication
+
+Tasks communicate via files on SD card in `/tmp/task_comm/`:
+
+```c
+// Task B: Save data for parent
+uint8_t results[1024] = { ... };
+task_save_for_parent("results.bin", results, sizeof(results));
+
+// Task A (after restore): Load data from child
+uint8_t buffer[1024];
+uint32_t loaded = task_load_from_child("results.bin", buffer, sizeof(buffer));
+
+// Check if child saved a file
+if (task_child_has_file("results.bin")) {
+    // File exists
+}
+```
+
+### Example: JPEG to RGB Conversion
+
+**Task A (GUI Image Viewer):**
+
+```c
+#include "task_switcher.h"
+#include "task_switcher_example.h"
+
+void on_convert_button_click(const char* jpeg_path) {
+    if (gui_trigger_jpeg_conversion(jpeg_path)) {
+        // After restore, execution continues here
+        // Task A state is exactly as it was before switch
+        
+        RgbImageHeader header;
+        uint8_t rgb_buffer[1024 * 768 * 3];
+        uint32_t loaded = gui_load_conversion_result(&header, rgb_buffer, sizeof(rgb_buffer));
+        if (loaded > 0) {
+            display_rgb_image(&header, rgb_buffer);
+        }
+    }
+}
+```
+
+**Task B (JPEG Converter):**
+
+```c
+#include "task_switcher.h"
+
+void main(void) {
+    task_switcher_init();
+    
+    // Perform JPEG to RGB conversion
+    RgbImageHeader header;
+    uint8_t* rgb_data = convert_jpeg_to_rgb("/images/input.jpg", &header);
+    
+    // Save results for parent
+    task_save_for_parent("converted.hdr", &header, sizeof(header));
+    task_save_for_parent("converted.rgb", rgb_data, header.data_size);
+    
+    free(rgb_data);
+    
+    // Wait for user to click "Back"
+    while (1) {
+        if (back_button_pressed()) {
+            task_restore();  // Returns to Task A
+        }
+    }
+}
+```
+
+### Configuration
+
+Customize task switcher behavior:
+
+```c
+TaskSwitcherConfig config = {
+    .frozen_task_file = "/tmp/frozen.bin",  // SD card path for frozen state
+    .min_free_ram = 80,                      // Require 80% free RAM
+    .auto_cleanup = true,                   // Delete frozen file after restore
+    .debug = false                          // Enable debug output
+};
+task_switcher_init_with_config(&config);
+```
+
+### Error Handling
+
+```c
+TaskSwitcherError err = task_switcher_get_error();
+
+switch (err) {
+    case TASK_ERROR_NONE:
+        break;
+    case TASK_ERROR_NO_SDCARD:
+        show_tft_error("SD Card Required for Task Switching!");
+        break;
+    case TASK_ERROR_FREEZE_FAILED:
+        show_tft_error("Failed to Freeze RAM!");
+        break;
+    case TASK_ERROR_LOAD_FAILED:
+        show_tft_error("Failed to Load New Task!");
+        break;
+    case TASK_ERROR_RESTORE_FAILED:
+        show_tft_error("Failed to Restore Parent!");
+        break;
+    case TASK_ERROR_NO_FROZEN_TASK:
+        show_tft_error("No Parent Task to Restore!");
+        break;
+    case TASK_ERROR_INSUFFICIENT_RAM:
+        show_tft_error("Need 80%+ Free RAM to Switch!");
+        break;
+}
+```
+
+### Files
+
+| File | Purpose |
+|------|---------|
+| `src/boot/task_switcher.h` | Main header with API |
+| `src/boot/task_switcher.c` | Core implementation |
+| `src/boot/task_switcher_example.h` | JPEG conversion example header |
+| `src/boot/task_switcher_example.c` | JPEG conversion example implementation |
+| `docs/TASK_SWITCHER.md` | Detailed documentation |
+
+---
+
 ## Hardware Configuration
 
 ### Platform Detection
@@ -542,6 +734,27 @@ gui_memory_strategy_get_stats(&total_ram, &used_ram, &free_ram, &strategy);
 | `guikit_autostart_strategy_name(strategy)` | Get strategy name string |
 | `guikit_autostart_print_config(config)` | Print autostart config |
 
+### Task Switcher Commands
+
+| Function | Description |
+|----------|-------------|
+| `task_switcher_init()` | Initialize task switcher with defaults |
+| `task_switcher_init_with_config(config)` | Initialize with custom configuration |
+| `task_switch_to(path)` | Freeze current task, load and run new task |
+| `task_restore()` | Free current task, restore parent from SD card |
+| `task_has_frozen_parent()` | Check if a parent task is frozen |
+| `task_get_frozen_parent(info)` | Get info about frozen parent task |
+| `task_get_current(info)` | Get info about current task |
+| `task_switcher_get_state()` | Get current task switcher state |
+| `task_switcher_get_error()` | Get last error code |
+| `task_switcher_error_to_string(err)` | Get error message string |
+| `task_switcher_has_enough_ram(percent)` | Check if enough RAM available |
+| `task_switcher_get_free_ram_percent()` | Get current free RAM percentage |
+| `task_switcher_cleanup_frozen()` | Clean up frozen task file |
+| `task_save_for_parent(filename, data, size)` | Save data for parent task to read |
+| `task_load_from_child(filename, buffer, size)` | Load data saved by child task |
+| `task_child_has_file(filename)` | Check if child saved a file |
+
 ---
 
 ## File Reference
@@ -557,6 +770,7 @@ gui_memory_strategy_get_stats(&total_ram, &used_ram, &free_ram, &strategy);
 - `docs/NETWORK.md` - Network architecture
 - `src/boot/README.md` - Bootloader documentation
 - `etc/GUIKIT_autostart.ini` - Example autostart configuration file
+- `docs/TASK_SWITCHER.md` - Task switcher documentation
 
 ### Source Files
 
@@ -567,6 +781,10 @@ gui_memory_strategy_get_stats(&total_ram, &used_ram, &free_ram, &strategy);
 - `src/boot/guikit_autostart_config.cpp` - Autostart configuration implementation
 - `src/boot/ini_parser.h` - INI parser header
 - `src/boot/ini_parser.c` - INI parser implementation
+- `src/boot/task_switcher.h` - Task switcher header
+- `src/boot/task_switcher.c` - Task switcher implementation
+- `src/boot/task_switcher_example.h` - Task switcher example header
+- `src/boot/task_switcher_example.c` - Task switcher example implementation
 
 #### Memory Strategy
 - `src/gui/gui_memory_strategy.h` - Memory strategy header
@@ -583,10 +801,13 @@ gui_memory_strategy_get_stats(&total_ram, &used_ram, &free_ram, &strategy);
 
 ## Version History
 
+- **Latest**: Task switcher for single-level context switching (A -> B -> back to A)
+- **Latest**: JPEG to RGB conversion example with task switching
 - **Latest**: Autostart configuration from /etc/GUIKIT_autostart.ini
 - **Latest**: INI parser for embedded systems
 - **Latest**: Memory strategy with STOP-at-first-success behavior
 - **Latest**: Bootloader with automatic hardware detection
+- **Latest**: RAM freeze/thaw system for fast boot
 - **Latest**: Config struct for memory strategy configuration
 
 ---
@@ -604,4 +825,4 @@ For issues, questions, or contributions:
 ---
 
 *Generated by Mistral Vibe*
-*Date: 2026-08-15*
+*Date: 2026-08-16*
