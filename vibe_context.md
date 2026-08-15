@@ -209,8 +209,9 @@ All commits pushed to `origin/main`:
 13. **cb47c66** - Add huge demo RAM requirements analysis for GUIKit
 14. **92e05b7** - Add GUIKit hardware configuration structure
 15. **543c5c3** - Add unified hardware config struct matching user concept
+16. **cb2bbc6** - Add union-based hardware config for GUIKit
 
-**Total: 15 commits** adding ~220KB of code and documentation
+**Total: 16 commits** adding ~235KB of code and documentation
 
 ---
 
@@ -259,7 +260,8 @@ All commits pushed to `origin/main`:
 │                       └── editor.js    # With --help support
 │
 │   ├── guikit_config.h              # Full hardware configuration structure
-│   └── guikit_hw_config.h            # Unified simple config (matches user concept)
+│   ├── guikit_hw_config.h            # Unified simple config (matches user concept)
+│   └── guikit_hw_config_union.h      # Union-based config (type-safe, memory efficient)
 │
 └── docs/
     └── discussion_analysis/          # Architecture analysis documents
@@ -478,15 +480,15 @@ WebDAVManager.help();
 
 | Metric | Value |
 |--------|-------|
-| Total Commits | 15 |
-| Files Created | 20 |
+| Total Commits | 16 |
+| Files Created | 21 |
 | Files Modified | 5 |
-| Lines of Code Added | ~220,000 |
+| Lines of Code Added | ~235,000 |
 | Documentation Lines | ~150,000 |
 | GUI Projects | 4 |
 | Script Files | 3 |
 | Documentation Files | 28+ |
-| Header Files | 2 |
+| Header Files | 3 |
 
 ---
 
@@ -560,6 +562,135 @@ WebDAVManager.help();
 - **Final Recommendation:**
   - **ESP8266:** 1 MB SRAM (8 × 23LC1024) = ~80% of full features
   - **ESP32:** 8 MB PSRAM = 100% of full features (Recommended)
+
+---
+
+## 🔧 Union-Based Hardware Configuration
+
+### Overview
+- **File:** `src/guikit_hw_config_union.h`
+- **Concept:** Use union for config struct (user request)
+- **Benefit:** Memory-efficient, type-safe access to different device types
+
+### The Union-Based Bank Structure
+
+Each bank in the configuration uses a union to store any type of device configuration:
+
+```c
+typedef struct {
+    guikit_device_type_t device_type;  // What type of device this is
+    bool enabled;
+    
+    // Union of all possible device configurations
+    union {
+        guikit_ram_config_t ram;
+        guikit_spi_device_config_t spi_device;
+        guikit_spi_expander_config_t spi_expander;
+    } config;
+    
+    const char* name;  // Optional human-readable name
+} guikit_device_bank_t;
+```
+
+### Device Types
+
+```c
+typedef enum {
+    GUIKIT_DEVICE_NONE = 0,
+    GUIKIT_DEVICE_RAM_INTERNAL,
+    GUIKIT_DEVICE_RAM_SRAM,
+    GUIKIT_DEVICE_RAM_PSRAM,
+    GUIKIT_DEVICE_RAM_FRAM,
+    GUIKIT_DEVICE_SPI_GENERIC,
+    GUIKIT_DEVICE_SPI_EXPANDER,
+    GUIKIT_DEVICE_TFT,
+    GUIKIT_DEVICE_TOUCH,
+    GUIKIT_DEVICE_SD_CARD
+} guikit_device_type_t;
+```
+
+### Main Configuration Struct
+
+```c
+typedef struct {
+    bool is_esp8266;
+    bool is_esp32;
+    
+    // Device banks - each can be RAM, SPI device, or SPI expander
+    guikit_device_bank_t banks[16];  // Up to 16 devices total
+    uint8_t bank_count;
+    
+    // SPI bus settings (shared across all SPI devices)
+    uint8_t sck_pin;
+    uint8_t mosi_pin;
+    uint8_t miso_pin;
+    uint8_t max_speed_mhz;
+    
+    guikit_display_config_t display;
+    
+    bool use_sd_card;
+    bool use_webdav;
+    bool debug_mode;
+} guikit_hw_config_union_t;
+```
+
+### Type-Safe Accessors
+
+```c
+// Check device type
+GUIKIT_BANK_IS_RAM(bank)
+GUIKIT_BANK_IS_SPI_DEVICE(bank)
+GUIKIT_BANK_IS_SPI_EXPANDER(bank)
+
+// Get type-safe pointer to config
+const guikit_ram_config_t* guikit_bank_get_ram(const guikit_device_bank_t* bank);
+const guikit_spi_device_config_t* guikit_bank_get_spi_device(const guikit_device_bank_t* bank);
+const guikit_spi_expander_config_t* guikit_bank_get_spi_expander(const guikit_device_bank_t* bank);
+```
+
+### Usage Example
+
+```c
+guikit_hw_config_union_t config = GUIKIT_HW_UNION_ESP8266_HUGE_DEMO;
+
+// Iterate through all banks
+for (int i = 0; i < config.bank_count; i++) {
+    if (GUIKIT_BANK_IS_RAM(config.banks[i])) {
+        const guikit_ram_config_t* ram = guikit_bank_get_ram(&config.banks[i]);
+        printf("RAM: %s, Size: %lu KB\n", config.banks[i].name, ram->size / 1024);
+    }
+    else if (GUIKIT_BANK_IS_SPI_EXPANDER(config.banks[i])) {
+        const guikit_spi_expander_config_t* exp = guikit_bank_get_spi_expander(&config.banks[i]);
+        printf("Expander: %s, Type: %d\n", config.banks[i].name, exp->type);
+    }
+}
+
+// Create custom configuration
+config.banks[0] = GUIKIT_RAM_BANK(GUIKIT_RAM_SRAM, 131072, 16, "My SRAM");
+config.banks[1] = GUIKIT_SPI_EXPANDER_BANK(GUIKIT_EXPANDER_MCP23S17, 0, 255, 255, "Expander");
+config.bank_count = 2;
+```
+
+### Memory Efficiency
+
+The union-based approach saves memory by having all device configurations share the same memory space:
+
+```
+Without union:
+  ram_config_t (8 bytes) + spi_device_config_t (8 bytes) + spi_expander_config_t (8 bytes) = 24 bytes per bank
+
+With union:
+  Max of the above (8 bytes) + device_type + enabled + name pointer = ~16 bytes per bank
+  
+Savings: ~8 bytes per bank × 16 banks = ~128 bytes saved
+```
+
+### Preset Configurations
+
+1. **GUIKIT_HW_UNION_ESP8266_DEFAULT** - Basic ESP8266 (TFT, Touch, SD)
+2. **GUIKIT_HW_UNION_ESP8266_HUGE_DEMO** - ESP8266 + 8×SRAM + TFT, Touch, SD
+3. **GUIKIT_HW_UNION_ESP8266_EXPANDER** - ESP8266 + 2×MCP23S17 + TFT, Touch, SD
+4. **GUIKIT_HW_UNION_ESP32_PREMIUM** - ESP32 + PSRAM + 2×MCP23S17 + TFT, Touch
 
 ---
 
@@ -826,6 +957,7 @@ config.display.double_buffer = true;
 - **Original Discussion:** `discussion_guikit.txt` - Source of architecture decisions
 - **Docs:** `docs/` - Existing architecture analysis documents
 - **SPI Expander Guide:** `about_port_expander.md` - Comprehensive SPI expander documentation
+- **Union Config:** `src/guikit_hw_config_union.h` - Union-based type-safe config
 - **Hardware Config:** `src/guikit_hw_config.h` - Unified simple config (user concept)
 - **Full Config:** `src/guikit_config.h` - Full hardware configuration
 - **Huge Demo RAM Guide:** `about_huge_demo_ram_requirements.md` - Complete RAM consumption analysis
@@ -852,6 +984,7 @@ All requested features have been implemented and committed:
 **Status:** Ready for development and testing
 
 **Latest Additions:**
+- ✅ Union-based config (`src/guikit_hw_config_union.h`)
 - ✅ Unified hardware config (`src/guikit_hw_config.h`)
 - ✅ Full hardware config (`src/guikit_config.h`)
 - ✅ Huge Demo RAM requirements analysis (`about_huge_demo_ram_requirements.md`)
