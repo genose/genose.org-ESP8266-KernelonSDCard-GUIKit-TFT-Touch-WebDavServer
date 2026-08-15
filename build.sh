@@ -80,6 +80,9 @@ show_help() {
     cat <<EOF
 $SCRIPT_NAME v$SCRIPT_VERSION
 
+A comprehensive build system for GUIKit project supporting both ESP8266 and ESP32
+with dual logging (serial + TFT) and SMP detection.
+
 USAGE:
   $(basename "$0") [command] [options]
 
@@ -92,24 +95,39 @@ COMMANDS:
   clean         Clean all build artifacts
   flash         Flash bootloader and kernel to device
   help          Show this help message
+  version       Show version information
 
-OPTIONS:
+PLATFORM OPTIONS:
+  --platform PLATFORM  Specify target platform: esp8266 or esp32 (default: esp8266)
+                      ESP8266: Single-core, ~80KB RAM
+                      ESP32:   Dual-core (SMP), ~320KB RAM, PSRAM support
+
+BUILD OPTIONS:
   --debug, -d    Enable verbose/debug output
   --upload, -u   Upload after build (requires PlatformIO)
   --port PORT    Specify serial port (e.g., /dev/ttyUSB0, COM3)
   --sd PATH      Specify SD card mount point (default: ./sdcard)
   --no-clean     Skip cleanup before build
-  --platform PLATFORM  Specify target platform: esp8266 or esp32 (default: esp8266)
   --help, -h    Show this help message
   --version, -v Show version information
 
 EXAMPLES:
-  $(basename "$0") all                              # Build everything for ESP8266
-  $(basename "$0") all --platform esp32             # Build everything for ESP32
-  $(basename "$0") bootloader --upload --port /dev/ttyUSB0  # Build & upload bootloader
-  $(basename "$0") sdcard --sd /Volumes/SDCARD      # Prepare real SD card
-  $(basename "$0") kernel --debug                   # Build with debug
-  $(basename "$0") kernel --platform esp32         # Build kernel for ESP32
+  # ESP8266 (default)
+  $(basename "$0") all                                  # Build everything
+  $(basename "$0") all --platform esp8266              # Explicit ESP8266
+  
+  # ESP32
+  $(basename "$0") all --platform esp32                 # Build for ESP32
+  $(basename "$0") kernel --platform esp32 --debug      # ESP32 debug build
+  
+  # Upload
+  $(basename "$0") bootloader --upload --port /dev/ttyUSB0
+  $(basename "$0") flash --platform esp32 --port COM3
+  
+  # SD Card
+  $(basename "$0") sdcard --sd /Volumes/SDCARD        # Prepare real SD card
+  
+  # Clean
   $(basename "$0") clean                            # Clean all artifacts
 
 BUILD PROCESS:
