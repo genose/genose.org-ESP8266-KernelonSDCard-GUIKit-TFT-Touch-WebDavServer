@@ -1139,6 +1139,7 @@ All requested features have been implemented and committed:
 - ✅ Kernel verification in bootloader
 - ✅ TFT initialization moved earlier for boot progress messages
 - ✅ Boot sequence: Hardware -> RAM -> SD Card -> TFT -> Kernel -> Memory Config -> Test & Display
+- ✅ SPI device enumeration with type detection
 
 **Status:** Ready for development and testing
 
@@ -1157,6 +1158,9 @@ All requested features have been implemented and committed:
 - ✅ tft_display_progress() function for showing progress on TFT
 - ✅ KernelInfo struct for tracking kernel file information
 - ✅ Updated bootloader README.md with kernel check documentation
+- ✅ SPI device enumeration support (`BootSpiDeviceType`, `BootSpiDeviceInfo`)
+- ✅ enumerate_spi_devices() and get_spi_device_count() functions
+- ✅ SPI device enumeration summary printed during boot
 
 ---
 
