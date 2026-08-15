@@ -22,7 +22,8 @@ docs/discussion_analysis/
 ├── 13_UI_PARSER.md                   # JSON UI parser and dynamic loading
 ├── 14_ADVANCED_FEATURES.md           # Clipboard, gestures, history, undo/redo
 ├── 15_PROJECT_STRUCTURE.md           # Complete file structure and platformio.ini
-└── 16_SCROLLABLE_UNION.md            # Union-based scrollable property with bitmask flags
+├── 16_SCROLLABLE_UNION.md            # Union-based scrollable property with bitmask flags
+└── 17_GRADIENT_UNION.md              # Union-based gradient-color with accessors, RGB565 default
 ```
 
 ## Concept Categories
@@ -166,6 +167,8 @@ src/gui/
 ├── widget_text.h               # Text buffer management
 ├── widget_scrollable.h         # Union-based scrollable property support
 ├── widget_scrollable.c         # Scrollable implementation
+├── widget_gradient.h           # Union-based gradient color support
+├── widget_gradient.c           # Gradient implementation
 ├── style.h                     # Draw style definitions
 ├── style.cpp                   # Style utility functions
 ├── renderer.h                  # Renderer declarations
@@ -241,3 +244,4 @@ Each file contains:
 - [x] Advanced features extraction
 - [x] Project structure extraction
 - [x] Scrollable union implementation (widget_scrollable.h/c)
+- [x] Gradient union implementation (widget_gradient.h/c)

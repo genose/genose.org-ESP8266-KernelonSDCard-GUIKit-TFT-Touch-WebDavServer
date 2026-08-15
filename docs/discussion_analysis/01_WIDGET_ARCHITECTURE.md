@@ -45,11 +45,9 @@ struct t_widget_base {
     WIDGET_TYPE type;   // Widget type
 
     // Style properties (CSS-like)
-    struct {
-        uint16_t color;           // Background color (RGBA565 for TFT)
-        bool gradient;            // Gradient enabled flag
-        uint16_t gradient_color;  // Secondary color for gradient
-    } background;
+    // Gradient support (union-based, memory optimized)
+    Gradient gradient;         // Union-based gradient with RGB565 default
+    // See 17_GRADIENT_UNION.md for complete gradient implementation
 
     struct {
         uint16_t color;           // Border color
@@ -84,7 +82,7 @@ struct t_widget_base {
 };
 ```
 
-**Memory Optimization**: The union-based scrollable design saves ~46% memory on average by only storing data for active scroll directions. See `16_SCROLLABLE_UNION.md` for complete details.
+**Memory Optimization**: The union-based scrollable design saves ~46% memory on average by only storing data for active scroll directions. The union-based gradient design saves ~44% memory by only storing data for active gradient types. See `16_SCROLLABLE_UNION.md` and `17_GRADIENT_UNION.md` for complete details.
 
 ### Button Widget Structure
 
@@ -138,9 +136,7 @@ struct t_widget_base {
 
     // CSS-like styling
     struct {
-        uint16_t color;          // Background color (RGBA565 for TFT)
-        bool gradient;           // Gradient enabled
-        uint16_t gradient_color; // Secondary color for gradient
+        Gradient gradient;      // Union-based gradient (primary color + optional gradient data)
     } background;
 
     struct {
@@ -172,6 +168,10 @@ struct t_widget_base {
     uint8_t children_count;            // Number of children
 };
 
+// Gradient support (union-based, memory optimized)
+// See 17_GRADIENT_UNION.md for complete implementation
+#include "widget_gradient.h"
+
 // Text structure for widgets with text
 struct t_widget_base_text {
     char* text;                    // Displayed text
@@ -180,7 +180,7 @@ struct t_widget_base_text {
         uint16_t color;             // Text color (RGBA565)
         // Other font properties (alignment, etc.)
     } font;
-};
+};;
 
 // Button widget (implicit inheritance via composition)
 struct t_widget_button {
@@ -432,6 +432,7 @@ Use interrupts for touch to avoid blocking the CPU.
 ## Related Documentation
 
 - **Scrollable Support**: See `16_SCROLLABLE_UNION.md` for union-based scrollable implementation
+- **Gradient Support**: See `17_GRADIENT_UNION.md` for union-based gradient implementation
 - **Memory Management**: See `docs/MEMORY_MANAGEMENT.md` for memory optimization strategies
 - **Style System**: See `05_STYLE_SYSTEM.md` for widget styling
 
