@@ -1,0 +1,100 @@
+# ============================================================================
+# .gitignore for ESP8266 GUIKit Project
+# 
+# Ignores build artifacts, IDE files, and temporary files
+# ============================================================================
+
+# Build directories
+.pio/
+build/
+bin/
+obj/
+
+# PlatformIO
+.pioenvs/
+
+# SDK Card (generated during build)
+sdcard/
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS specific files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Log files
+*.log
+.log/
+
+# Binary files
+*.bin
+*.elf
+*.hex
+*.uf2
+*.eep
+
+# Compressed binaries
+*.bin.gz
+*.gz
+
+# Local configuration (keep platformio.ini)
+platformio.ini.local
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv/
+
+# Web server files
+*.pyc
+__pycache__/
+
+# Testing
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# Documentation build
+_docs/
+
+# Dependencies (managed by PlatformIO)
+lib_deps/
