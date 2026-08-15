@@ -17,6 +17,7 @@
 #include <stdarg.h>
 #include "guikit_hw_config.h"
 #include "gui_memory_strategy.h"
+#include "guikit_autostart_config.h"
 
 // GUIKit Version
 #define GUIKIT_VERSION "1.0.0"
@@ -1375,9 +1376,52 @@ bool guikit_bootloader_run(BootloaderState* state) {
     printf("\n");
     
     // ---------------------------------------------------------------------------
-    // Step 4: TFT Initialization (moved here to show boot messages early)
+    // Step 4.5: Load Autostart Configuration (if SD Card is available)
     // ---------------------------------------------------------------------------
-    printf("Loading ... [Step 4/8] TFT Initialization\n");
+    printf("Loading ... [Step 4.5/8] Loading Autostart Configuration\n");
+    state->current_state = BOOT_STATE_AUTOSTART_CONFIG;
+    
+    // Initialize with defaults
+    guikit_autostart_init_default(&state->autostart_config);
+    
+    // Try to load from SD Card
+    if (state->hardware.sdcard_detected) {
+        if (guikit_autostart_parse_ini(&state->autostart_config, 
+                                         state->autostart_config.config_file)) {
+            printf("  Autostart config loaded from: %s\n", 
+                   state->autostart_config.config_file);
+            
+            // Validate config
+            if (!guikit_autostart_validate(&state->autostart_config)) {
+                printf("  WARNING: Invalid autostart config, using defaults\n");
+                guikit_autostart_init_default(&state->autostart_config);
+            } else {
+                printf("  Autostart config validated successfully\n");
+            }
+        } else {
+            printf("  WARNING: Could not load autostart config, using defaults\n");
+            printf("  Expected file: %s\n", state->autostart_config.config_file);
+        }
+    } else {
+        printf("  WARNING: No SD Card, using default autostart config\n");
+    }
+    
+    // Print config summary
+    printf("\n");
+    printf("  Autostart Configuration:\n");
+    printf("    Kernel path: %s\n", state->autostart_config.kernel.path);
+    printf("    Kernel compress: %s\n", state->autostart_config.kernel.compress ? "Yes" : "No");
+    printf("    Kernel verify: %s\n", state->autostart_config.kernel.verify ? "Yes" : "No");
+    printf("    Memory strategy: %s\n", guikit_autostart_strategy_name(state->autostart_config.strategy));
+    printf("    Stop at first success: %s\n", state->autostart_config.strategy_stop_at_first_success ? "Yes" : "No");
+    printf("    GUI path: %s\n", state->autostart_config.gui.gui_path);
+    printf("    GUI auto_start: %s\n", state->autostart_config.gui.auto_start ? "Yes" : "No");
+    printf("\n");
+    
+    // ---------------------------------------------------------------------------
+    // Step 5: TFT Initialization (moved here to show boot messages early)
+    // ---------------------------------------------------------------------------
+    printf("Loading ... [Step 5/8] TFT Initialization\n");
     state->current_state = BOOT_STATE_TFT_INITIALIZATION;
     
     if (state->hardware.tft_detected) {
@@ -1396,20 +1440,31 @@ bool guikit_bootloader_run(BootloaderState* state) {
     printf("\n");
     
     // ---------------------------------------------------------------------------
-    // Step 5: Kernel Check (if SD Card is available)
+    // Step 6: Kernel Check (if SD Card is available)
     // ---------------------------------------------------------------------------
     if (state->hardware.sdcard_detected) {
-        boot_log(state, "Loading ... [Step 5/8] Kernel Check\n");
+        boot_log(state, "Loading ... [Step 6/8] Kernel Check\n");
         state->current_state = BOOT_STATE_KERNEL_CHECK;
         
         // boot_log will automatically display on TFT if initialized
         
-        // Try all kernel paths until one is found
+        // Try kernel path from autostart config first
         bool kernel_found = false;
-        for (int i = 0; KERNEL_PATHS[i] != NULL; i++) {
-            if (check_kernel(state, KERNEL_PATHS[i])) {
+        if (state->autostart_config.kernel.path[0] != '\0') {
+            boot_log(state, "  Checking autostart kernel path: %s\n", 
+                    state->autostart_config.kernel.path);
+            if (check_kernel(state, state->autostart_config.kernel.path)) {
                 kernel_found = true;
-                break;
+            }
+        }
+        
+        // If not found, try all default kernel paths
+        if (!kernel_found) {
+            for (int i = 0; KERNEL_PATHS[i] != NULL; i++) {
+                if (check_kernel(state, KERNEL_PATHS[i])) {
+                    kernel_found = true;
+                    break;
+                }
             }
         }
         
@@ -1460,18 +1515,52 @@ bool guikit_bootloader_run(BootloaderState* state) {
     }
     
     // ---------------------------------------------------------------------------
-    // Step 6: Memory Strategy Configuration
+    // Step 7: Memory Strategy Configuration
     // ---------------------------------------------------------------------------
-    boot_log(state, "Loading ... [Step 6/8] Memory Strategy Configuration\n");
+    boot_log(state, "Loading ... [Step 7/8] Memory Strategy Configuration\n");
     state->current_state = BOOT_STATE_MEMORY_STRATEGY_CONFIG;
     
     // Configure memory strategy based on detected hardware
     configure_memory_strategy(state);
     
+    // Apply autostart memory strategy settings if available
+    // Map autostart strategy to memory strategy config
+    switch (state->autostart_config.strategy) {
+        case MEM_STRATEGY_EXTERNAL_FIRST:
+            state->memory_config.use_external_ram_by_default = true;
+            state->memory_config.external_ram_min_size = 0;  // Use external for any size
+            state->memory_config.use_sd_swap_by_default = true;
+            state->memory_config.sd_swap_min_size = 0;
+            state->memory_config.internal_ram_max_size = UINT32_MAX;  // No limit
+            break;
+        case MEM_STRATEGY_SD_SWAP_FIRST:
+            state->memory_config.use_sd_swap_by_default = true;
+            state->memory_config.sd_swap_min_size = 0;  // Use SD swap for any size
+            state->memory_config.use_external_ram_by_default = true;
+            state->memory_config.external_ram_min_size = 0;
+            state->memory_config.internal_ram_max_size = UINT32_MAX;
+            break;
+        case MEM_STRATEGY_INTERNAL_ONLY:
+            state->memory_config.use_external_ram_by_default = false;
+            state->memory_config.use_sd_swap_by_default = false;
+            state->memory_config.internal_ram_max_size = UINT32_MAX;
+            break;
+        case MEM_STRATEGY_AUTO:
+        case MEM_STRATEGY_CUSTOM:
+        default:
+            // Keep auto-detected configuration
+            break;
+    }
+    
+    // Set stop_at_first_success flag
+    state->memory_config.check_memory_before_load = state->autostart_config.strategy_stop_at_first_success;
+    
     // Update the main config with the memory strategy
     state->config.memory_strategy = state->memory_config;
     
-    boot_log(state, "Loading ... [Step 6/8] Memory strategy configured\n");
+    boot_log(state, "Loading ... [Step 7/8] Memory strategy configured\n");
+    boot_log(state, "  Memory strategy from autostart: %s\n", 
+            guikit_autostart_strategy_name(state->autostart_config.strategy));
     boot_log(state, "  Strategy thresholds:\n");
     boot_log(state, "    External RAM min: %lu KB\n", state->memory_config.external_ram_min_size / 1024);
     boot_log(state, "    SD Swap min: %lu KB\n", state->memory_config.sd_swap_min_size / 1024);
@@ -1484,9 +1573,9 @@ bool guikit_bootloader_run(BootloaderState* state) {
     boot_log(state, "\n");
     
     // ---------------------------------------------------------------------------
-    // Step 7: Memory Strategy Test and Apply
+    // Step 8: Memory Strategy Test and Apply
     // ---------------------------------------------------------------------------
-    boot_log(state, "Loading ... [Step 7/8] Memory Strategy Test and Apply\n");
+    boot_log(state, "Loading ... [Step 8/8] Memory Strategy Test and Apply\n");
     state->current_state = BOOT_STATE_MEMORY_STRATEGY_APPLY;
     
     // Test memory strategy with different GUI sizes
@@ -1551,6 +1640,20 @@ bool guikit_bootloader_run(BootloaderState* state) {
         
         snprintf(buffer, sizeof(buffer), "  Touch: %s",
                  state->hardware.touch_detected ? "Yes" : "No");
+        tft_draw_text(state->tft_instance, 10, y, buffer, BOOTLOADER_TEXT_COLOR, BOOTLOADER_BG_COLOR);
+        y += 30;
+        
+        // Autostart Configuration
+        tft_draw_text(state->tft_instance, 10, y, "Autostart Config:", BOOTLOADER_TEXT_COLOR, BOOTLOADER_BG_COLOR);
+        y += 20;
+        
+        snprintf(buffer, sizeof(buffer), "  Strategy: %s",
+                 guikit_autostart_strategy_name(state->autostart_config.strategy));
+        tft_draw_text(state->tft_instance, 10, y, buffer, BOOTLOADER_TEXT_COLOR, BOOTLOADER_BG_COLOR);
+        y += 20;
+        
+        snprintf(buffer, sizeof(buffer), "  GUI: %s",
+                 state->autostart_config.gui.gui_path);
         tft_draw_text(state->tft_instance, 10, y, buffer, BOOTLOADER_TEXT_COLOR, BOOTLOADER_BG_COLOR);
         y += 30;
         

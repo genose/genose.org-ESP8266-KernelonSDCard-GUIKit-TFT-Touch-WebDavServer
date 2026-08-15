@@ -13,6 +13,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "guikit_hw_config.h"
+#include "guikit_autostart_config.h"
 
 // Forward declarations
 class SPISRAM;
@@ -127,6 +128,7 @@ typedef enum {
     BOOT_STATE_RAM_INITIALIZATION,   ///< Initializing RAM
     BOOT_STATE_SPI_DETECTION,        ///< Detecting SPI devices
     BOOT_STATE_SDCARD_DETECTION,     ///< Detecting SD Card
+    BOOT_STATE_AUTOSTART_CONFIG,    ///< Loading autostart configuration
     BOOT_STATE_TFT_INITIALIZATION,   ///< Initializing TFT
     BOOT_STATE_KERNEL_CHECK,         ///< Checking kernel file
     BOOT_STATE_MEMORY_STRATEGY_CONFIG,  ///< Configuring memory strategy
@@ -159,6 +161,7 @@ typedef struct {
     // Configuration
     guikit_hw_config_t config;        ///< Platform configuration
     memory_strategy_config_t memory_config;  ///< Memory strategy configuration
+    GUIKitAutostartConfig autostart_config;  ///< Autostart configuration from INI
     
     // Hardware instances (platform-specific objects)
     SPISRAM* sram_instance;          ///< SRAM instance
