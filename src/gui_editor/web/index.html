@@ -21,7 +21,7 @@
                     <button id="btn-new" class="toolbar-btn" title="New GUI (Ctrl+N)">
                         <span class="icon">📄</span> New
                     </button>
-                    <button id="btn-open" class="toolbar-btn" title="Open GUI (Ctrl+O)">
+                    <button id="btn-open" class="toolbar-btn" title="Open GUI (Ctrl+O)" onclick="toggleFileChooser()">
                         <span class="icon">📂</span> Open
                     </button>
                     <button id="btn-save" class="toolbar-btn" title="Save GUI (Ctrl+S)">
@@ -43,6 +43,9 @@
                     <span id="gui-name">Untitled</span>
                     <span id="gui-size">320x240</span>
                 </div>
+                <button id="btn-files" class="toolbar-btn" title="File Explorer (Ctrl+E)" onclick="toggleFileChooser()">
+                    <span class="icon">📁</span>
+                </button>
                 <button id="btn-settings" class="toolbar-btn" title="Settings">
                     <span class="icon">⚙️</span>
                 </button>
@@ -296,6 +299,111 @@
         </div>
     </div>
 
+    <!-- File Chooser Modal -->
+    <div id="modal-open" class="modal hidden">
+        <div class="modal-content modal-large">
+            <h2>Open GUI</h2>
+            <div class="file-browser" id="file-browser">
+                <div class="file-toolbar">
+                    <button id="btn-refresh-files" class="toolbar-btn" onclick="refreshFileChooser()">🔄 Refresh</button>
+                    <button id="btn-new-folder" class="toolbar-btn" onclick="showNewFolderModal()">📁 New Folder</button>
+                    <button id="btn-upload-file" class="toolbar-btn" onclick="showUploadModal()">📤 Upload</button>
+                </div>
+                <div class="file-list" id="file-chooser-list">
+                    <div class="file-chooser-loading" id="file-chooser-loading">Loading...</div>
+                </div>
+            </div>
+            <div class="file-chooser-actions">
+                <span id="file-chooser-path" class="file-path">/</span>
+                <div class="file-actions">
+                    <button id="file-chooser-open" class="btn-primary" onclick="loadSelectedFileChooser()" disabled>Open</button>
+                    <button id="file-chooser-cancel" class="btn-secondary" onclick="hideFileChooser()">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- New Folder Modal -->
+    <div id="modal-new-folder" class="modal hidden">
+        <div class="modal-content">
+            <h2>New Folder</h2>
+            <div class="form-group">
+                <label for="new-folder-name">Folder Name:</label>
+                <input type="text" id="new-folder-name" placeholder="Enter folder name">
+            </div>
+            <div class="modal-actions">
+                <button class="btn-secondary" onclick="hideFileChooser(); document.getElementById('modal-new-folder').classList.add('hidden')">Cancel</button>
+                <button class="btn-primary" onclick="createNewFolder()">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rename File Modal -->
+    <div id="modal-rename-file" class="modal hidden">
+        <div class="modal-content">
+            <h2>Rename File</h2>
+            <div class="form-group">
+                <label for="rename-new-name">New Name:</label>
+                <input type="text" id="rename-new-name" placeholder="Enter new filename">
+            </div>
+            <div class="modal-actions">
+                <button class="btn-secondary" onclick="document.getElementById('modal-rename-file').classList.add('hidden')">Cancel</button>
+                <button class="btn-primary" onclick="renameFileChooser()">Rename</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upload Modal -->
+    <div id="modal-upload" class="modal hidden">
+        <div class="modal-content">
+            <h2>Upload File</h2>
+            <div class="form-group">
+                <label>Select file to upload:</label>
+                <input type="file" id="upload-file-input" accept=".json,.txt,.js,.css" onchange="handleFileUpload(event); updateUploadFileName()" style="display: none">
+                <button class="btn-primary" onclick="triggerFileUpload()">Choose File</button>
+                <span id="upload-file-name" style="margin-left: 10px;"></span>
+            </div>
+            <div class="form-group">
+                <label>Status:</label>
+                <span id="upload-status">Ready to upload</span>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-secondary" onclick="hideUploadModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- File Chooser Panel (Slide-out) -->
+    <div id="file-chooser-panel" class="file-chooser-panel hidden">
+        <div class="file-chooser-header">
+            <h2>📁 File Explorer</h2>
+            <div class="file-chooser-controls">
+                <input type="text" id="file-chooser-filter" placeholder="Filter..." oninput="setFileChooserFilter(this.value)">
+                <button class="toolbar-btn" onclick="refreshFileChooser()" title="Refresh">🔄</button>
+                <button class="toolbar-btn" onclick="showNewFolderModal()" title="New Folder">📁</button>
+                <button class="toolbar-btn" onclick="showUploadModal()" title="Upload">📤</button>
+                <button class="toolbar-btn close-btn" onclick="toggleFileChooser()" title="Close">✕</button>
+            </div>
+        </div>
+        <div class="file-chooser-body">
+            <div class="file-chooser-toolbar">
+                <button class="sort-btn" onclick="sortFilesBy('name')">Name</button>
+                <button class="sort-btn" onclick="sortFilesBy('date')">Date</button>
+                <button class="sort-btn" onclick="sortFilesBy('size')">Size</button>
+                <label class="show-hidden"><input type="checkbox" onchange="toggleHiddenFiles()"> Show Hidden</label>
+            </div>
+            <div class="file-chooser-list" id="file-chooser-list">
+                <div class="file-chooser-loading" id="file-chooser-loading">Loading...</div>
+            </div>
+        </div>
+        <div class="file-chooser-footer">
+            <span id="file-chooser-path" class="file-path">/</span>
+            <div class="file-actions">
+                <button id="file-chooser-open" class="btn-primary" onclick="loadSelectedFileChooser()" disabled>Open</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Scripts - Load in dependency order -->
     <script src="state.js"></script>
     <script src="json_editor.js"></script>
@@ -306,6 +414,7 @@
     <script src="drag_drop.js"></script>
     <script src="canvas.js"></script>
     <script src="render.js"></script>
+    <script src="file_chooser.js"></script>
     <script src="editor.js"></script>
     <script src="renderer.js"></script>
 </body>

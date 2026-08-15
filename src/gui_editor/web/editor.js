@@ -38,6 +38,7 @@ function initEditor() {
     initCanvas();
     setupEventListeners();
     setupDragAndDrop();
+    initFileChooser();
     createNewGUI();
     updateStatusBar();
     updateHierarchy();
@@ -254,7 +255,7 @@ window.WebDAVClient = WebDAVClient;
 function setupEventListeners() {
     // Toolbar
     setupButton('btn-new', () => showNewModal());
-    setupButton('btn-open', () => showOpenModal());
+    setupButton('btn-open', () => toggleFileChooser());
     setupButton('btn-save', () => saveCurrentGUI());
     setupButton('btn-save-as', () => showSaveAsModal());
     setupButton('btn-preview', () => showPreview());
@@ -410,7 +411,8 @@ function handleKeyDown(e) {
         'z': () => e.ctrlKey && (e.shiftKey ? redo() : undo()),
         's': () => e.ctrlKey && saveCurrentGUI(),
         'n': () => e.ctrlKey && showNewModal(),
-        'o': () => e.ctrlKey && showOpenModal(),
+        'o': () => e.ctrlKey && toggleFileChooser(),
+        'e': () => e.ctrlKey && toggleFileChooser(),
         'ArrowUp': () => moveSelected(0, -EditorState.gridSize),
         'ArrowDown': () => moveSelected(0, EditorState.gridSize),
         'ArrowLeft': () => moveSelected(-EditorState.gridSize, 0),
