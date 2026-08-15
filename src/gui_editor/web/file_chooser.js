@@ -1,13 +1,16 @@
 /**
  * GUIKit Web Editor - Dual Source File Chooser
  * Shows both WebDAV (ESP8266) and Local Computer files
+ * Supports project-based navigation
  */
 
 const FileChooserState = {
     activeSource: 'webdav',
     webdav: { currentPath: '/', files: [], selectedFile: null, isLoading: false },
     local: { currentPath: null, files: [], selectedFile: null, isLoading: false, handle: null },
-    filter: '', showHidden: false, sortBy: 'name', sortOrder: 'asc'
+    filter: '', showHidden: false, sortBy: 'name', sortOrder: 'asc',
+    inProject: false,
+    projectPath: ''
 };
 
 function getActiveSourceState() { return FileChooserState[FileChooserState.activeSource]; }
@@ -17,6 +20,9 @@ function getActiveSelectedFile() { return getActiveSourceState().selectedFile; }
 function setActiveSource(source) {
     if (FileChooserState.activeSource !== source) {
         FileChooserState.activeSource = source;
+        
+        // When switching sources, re-check project context
+        checkProjectContext();
         refreshFileChooser();
     }
     const webdavBtn = document.getElementById('btn-source-webdav');
@@ -43,8 +49,38 @@ function toggleFileChooser() {
     if (panel) { panel.classList.toggle('hidden'); if (!panel.classList.contains('hidden')) refreshFileChooser(); }
 }
 
+function checkProjectContext() {
+    // Check if we're in a project context
+    if (window.ProjectState && window.ProjectState.currentProject) {
+        const project = window.ProjectState.currentProject;
+        FileChooserState.inProject = true;
+        FileChooserState.projectPath = `${project.name}.GUIKIT/`;
+        
+        // Set the current path based on project location
+        if (FileChooserState.activeSource === 'webdav') {
+            FileChooserState.webdav.currentPath = `/${FileChooserState.projectPath}`;
+        } else {
+            FileChooserState.local.currentPath = FileChooserState.projectPath;
+        }
+    } else {
+        FileChooserState.inProject = false;
+        FileChooserState.projectPath = '';
+        
+        // Reset to default paths
+        if (FileChooserState.activeSource === 'webdav') {
+            FileChooserState.webdav.currentPath = '/';
+        } else {
+            FileChooserState.local.currentPath = null;
+        }
+    }
+}
+
 async function refreshFileChooser(path = null) {
     const state = getActiveSourceState();
+    
+    // Check project context
+    checkProjectContext();
+    
     if (path) state.currentPath = path;
     const fileListEl = document.getElementById('file-chooser-list');
     const pathEl = document.getElementById('file-chooser-path');
@@ -58,13 +94,19 @@ async function refreshFileChooser(path = null) {
     } catch (error) { logToConsole(`Error: ${error.message}`); if (fileListEl) fileListEl.innerHTML = '<div class="file-chooser-error">Error loading files</div>';
     } finally {
         if (loadingEl) loadingEl.classList.add('hidden');
-        if (pathEl) pathEl.textContent = FileChooserState.activeSource === 'webdav' ? (state.currentPath || '/') : (state.currentPath || 'Local Files');
+        if (pathEl) {
+            const displayPath = FileChooserState.inProject ? 
+                (FileChooserState.activeSource === 'webdav' ? state.currentPath : `Project: ${FileChooserState.projectPath}`) :
+                (FileChooserState.activeSource === 'webdav' ? (state.currentPath || '/') : (state.currentPath || 'Local Files'));
+            pathEl.textContent = displayPath;
+        }
     }
 }
 
 async function loadWebDAVFiles() {
     const state = FileChooserState.webdav;
     try {
+        // Use the current path which may include project path
         const response = await fetch(`/webdav/gui${state.currentPath}`);
         if (!response.ok) throw new Error('Failed to list files');
         let files = []; const data = await response.text();
@@ -179,7 +221,29 @@ function renderFileChooser() {
     updateFileChooserActions();
 }
 
-function navigateFileChooser(path) { const state = getActiveSourceState(); state.currentPath = path; state.selectedFile = null; refreshFileChooser(); }
+function navigateFileChooser(path) {
+    const state = getActiveSourceState();
+    
+    // If we're in a project, ensure the path stays within the project
+    if (FileChooserState.inProject) {
+        // Validate that the path is within the project
+        const projectPrefix = `/${FileChooserState.projectPath}`;
+        const projectRoot = FileChooserState.activeSource === 'webdav' ? projectPrefix : FileChooserState.projectPath;
+        
+        if (path.startsWith(projectPrefix) || path === projectRoot || path === `/${FileChooserState.projectPath}`) {
+            state.currentPath = path;
+        } else {
+            // Don't allow navigation outside the project
+            logToConsole('Cannot navigate outside project directory');
+            return;
+        }
+    } else {
+        state.currentPath = path;
+    }
+    
+    state.selectedFile = null;
+    refreshFileChooser();
+}
 function selectFileChooser(name, isDirectory) { const state = getActiveSourceState(); const file = state.files.find(f => f.name === name); if (file) { state.selectedFile = isDirectory ? null : file; renderFileChooser(); updateFileChooserActions(); } }
 
 function updateFileChooserActions() {
@@ -191,18 +255,42 @@ function updateFileChooserActions() {
 
 async function loadSelectedFileChooser() {
     const file = getActiveSelectedFile();
-    if (file && FileChooserState.activeSource === 'webdav') { const fullPath = FileChooserState.webdav.currentPath + '/' + file.name; await loadGUIFromFile(fullPath); hideFileChooser(); }
+    if (file && FileChooserState.activeSource === 'webdav') {
+        const state = getActiveSourceState();
+        const fullPath = state.currentPath + '/' + file.name;
+        await loadGUIFromFile(fullPath);
+        hideFileChooser();
+    }
     else if (file && FileChooserState.activeSource === 'local') {
-        try { const content = await file.fileHandle.text(); openGUIFromJSON(content); hideFileChooser(); } catch (error) { logToConsole(`Local load error: ${error.message}`); }
+        try { 
+            const content = await file.fileHandle.text(); 
+            openGUIFromJSON(content); 
+            hideFileChooser(); 
+        } catch (error) { logToConsole(`Local load error: ${error.message}`); }
     }
 }
 
 function showNewFolderModal() { const modal = document.getElementById('modal-new-folder'); if (modal) { const input = document.getElementById('new-folder-name'); if (input) input.value = ''; modal.classList.remove('hidden'); } }
 async function createNewFolder() {
-    const input = document.getElementById('new-folder-name'); if (!input) return; const folderName = input.value.trim(); if (!folderName) return;
+    const input = document.getElementById('new-folder-name'); if (!input) return; 
+    const folderName = input.value.trim(); if (!folderName) return;
     const modal = document.getElementById('modal-new-folder'); if (modal) modal.classList.add('hidden');
-    try { const path = FileChooserState.webdav.currentPath + '/' + folderName; const response = await fetch(`/webdav/gui${path}`, { method: 'MKCOL' });
-        if (response.ok) { logToConsole(`Created: ${path}`); refreshFileChooser(); } else logToConsole(`Failed: ${path}`); } catch (error) { logToConsole(`Error: ${error.message}`); }
+    
+    // Validate folder name (no path traversal)
+    if (folderName.includes('/') || folderName.includes('\\') || folderName.includes('..')) {
+        logToConsole('Error: Invalid folder name');
+        return;
+    }
+    
+    try { 
+        const state = getActiveSourceState();
+        const path = state.currentPath + '/' + folderName;
+        const response = await fetch(`/webdav/gui${path}`, { method: 'MKCOL' });
+        if (response.ok) { 
+            logToConsole(`Created: ${path}`); 
+            refreshFileChooser(); 
+        } else logToConsole(`Failed: ${path}`); 
+    } catch (error) { logToConsole(`Error: ${error.message}`); }
 }
 
 async function deleteSelectedFileChooser() {
@@ -256,10 +344,20 @@ async function downloadCurrentGUI() {
 }
 
 function initFileChooser() {
-    document.addEventListener('keydown', handleFileChooserKeyDown); const panel = document.getElementById('file-chooser-panel');
-    if (panel) panel.addEventListener('keydown', handleFileChooserKeyDown); const webdavBtn = document.getElementById('btn-source-webdav'); const localBtn = document.getElementById('btn-source-local');
-    if (webdavBtn && localBtn) webdavBtn.classList.add('active'); updateSourceIndicator();
+    document.addEventListener('keydown', handleFileChooserKeyDown);
+    const panel = document.getElementById('file-chooser-panel');
+    if (panel) panel.addEventListener('keydown', handleFileChooserKeyDown);
+    
+    const webdavBtn = document.getElementById('btn-source-webdav');
+    const localBtn = document.getElementById('btn-source-local');
+    if (webdavBtn && localBtn) webdavBtn.classList.add('active');
+    
+    updateSourceIndicator();
+    
+    // Initial project context check
+    checkProjectContext();
 }
 
 window.FileChooserState = FileChooserState; window.showFileChooser = showFileChooser; window.toggleFileChooser = toggleFileChooser;
 window.refreshFileChooser = refreshFileChooser; window.setSource = setSource; window.downloadCurrentGUI = downloadCurrentGUI;
+window.checkProjectContext = checkProjectContext;

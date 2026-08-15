@@ -1133,6 +1133,149 @@ html, body {
 }
 
 /* =============================================================================
+   PROJECT MANAGER STYLES
+   ============================================================================ */
+
+.project-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-right: 12px;
+    padding: 4px 8px;
+    background-color: var(--tertiary-bg);
+    border-radius: 4px;
+}
+
+.project-info #project-name {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.project-location {
+    font-size: 10px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Project Manager Tabs */
+.project-manager-tabs {
+    display: flex;
+    gap: 4px;
+    padding: 0 8px 8px;
+    background-color: var(--tertiary-bg);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.project-tabs-content {
+    padding: 8px;
+}
+
+/* Project List */
+.project-list {
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background-color: var(--panel-bg);
+}
+
+.project-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--border-color);
+    transition: background-color 0.2s ease;
+}
+
+.project-item:last-child {
+    border-bottom: none;
+}
+
+.project-item:hover {
+    background-color: var(--border-color);
+}
+
+.project-item.selected {
+    background-color: var(--accent-color);
+    color: white;
+}
+
+.project-icon {
+    font-size: 18px;
+    width: 24px;
+    text-align: center;
+}
+
+.project-name {
+    flex: 1;
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.project-location {
+    font-size: 11px;
+    color: var(--text-muted);
+    padding: 2px 6px;
+    border-radius: 3px;
+    background-color: var(--tertiary-bg);
+}
+
+.project-item:hover .project-location {
+    background-color: var(--border-color);
+}
+
+.project-empty {
+    padding: 20px;
+    text-align: center;
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+/* Project Toolbar */
+.project-toolbar {
+    display: flex;
+    gap: 4px;
+    padding-bottom: 8px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+/* =============================================================================
+   PROJECT MODAL STYLES
+   ============================================================================ */
+
+#modal-new-project .modal-content {
+    min-width: 400px;
+}
+
+#modal-projects .modal-content {
+    min-width: 600px;
+}
+
+#modal-project-settings .modal-content {
+    min-width: 350px;
+}
+
+.project-modal-section {
+    margin-bottom: 16px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.project-modal-section:last-child {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+}
+
+/* =============================================================================
    UTILITY CLASSES
    ============================================================================ */
 

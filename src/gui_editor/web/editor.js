@@ -39,6 +39,7 @@ function initEditor() {
     setupEventListeners();
     setupDragAndDrop();
     initFileChooser();
+    initProjectManager();
     createNewGUI();
     updateStatusBar();
     updateHierarchy();
@@ -262,6 +263,13 @@ function setupEventListeners() {
     setupButton('btn-export', () => exportToC());
     setupButton('btn-settings', () => logToConsole('Settings not implemented'));
 
+    // Project buttons
+    setupButton('btn-new-project', () => window.showNewProjectModal ? window.showNewProjectModal() : logToConsole('Project manager not loaded'));
+    setupButton('btn-projects', () => window.showProjectManager ? window.showProjectManager() : logToConsole('Project manager not loaded'));
+    setupButton('btn-save-project', () => window.saveProject ? window.saveProject() : logToConsole('No project open'));
+    setupButton('btn-close-project', () => window.closeProject ? window.closeProject() : logToConsole('Project manager not loaded'));
+    setupButton('btn-project-settings', () => window.showProjectSettingsModal ? window.showProjectSettingsModal() : logToConsole('Project manager not loaded'));
+
     // Canvas controls
     setupButton('btn-zoom-in', () => setZoom(EditorState.zoom + 0.1));
     setupButton('btn-zoom-out', () => setZoom(EditorState.zoom - 0.1));
@@ -273,6 +281,20 @@ function setupEventListeners() {
     // JSON editor
     setupButton('btn-format-json', () => formatJSON());
     setupButton('btn-validate-json', () => validateJSON());
+
+    // Project manager tabs
+    const projectTabs = document.querySelectorAll('.project-manager-tabs .tab-btn');
+    if (projectTabs.length > 0) {
+        projectTabs.forEach(btn => {
+            btn.addEventListener('click', () => {
+                projectTabs.forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.project-tabs-content .tab-content').forEach(c => c.classList.add('hidden'));
+                btn.classList.add('active');
+                const content = document.getElementById(`tab-${btn.dataset.tab}`);
+                if (content) content.classList.remove('hidden');
+            });
+        });
+    }
 
     // Keyboard
     document.addEventListener('keydown', handleKeyDown);
@@ -383,7 +405,11 @@ function selectFile(element) {
 }
 
 async function saveCurrentGUI() {
-    if (EditorState.currentFile) {
+    // Check if we're in a project context
+    if (window.ProjectState && window.ProjectState.currentProject) {
+        // Save to project
+        await window.saveProject();
+    } else if (EditorState.currentFile) {
         await saveGUIToFile(EditorState.currentFile);
     } else {
         showSaveAsModal();
@@ -413,6 +439,7 @@ function handleKeyDown(e) {
         'n': () => e.ctrlKey && showNewModal(),
         'o': () => e.ctrlKey && toggleFileChooser(),
         'e': () => e.ctrlKey && toggleFileChooser(),
+        'p': () => e.ctrlKey && (window.showProjectManager ? window.showProjectManager() : null),
         'ArrowUp': () => moveSelected(0, -EditorState.gridSize),
         'ArrowDown': () => moveSelected(0, EditorState.gridSize),
         'ArrowLeft': () => moveSelected(-EditorState.gridSize, 0),

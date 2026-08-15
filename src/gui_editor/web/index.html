@@ -30,6 +30,18 @@
                     <button id="btn-save-as" class="toolbar-btn" title="Save As">
                         <span class="icon">💾</span> Save As
                     </button>
+                    <button id="btn-new-project" class="toolbar-btn" title="New Project (Ctrl+Shift+N)">
+                        <span class="icon">🆕</span> New Project
+                    </button>
+                    <button id="btn-projects" class="toolbar-btn" title="Project Manager (Ctrl+P)">
+                        <span class="icon">📁</span> Projects
+                    </button>
+                    <button id="btn-save-project" class="toolbar-btn" title="Save Project (Ctrl+Shift+S)">
+                        <span class="icon">💾</span> Save Project
+                    </button>
+                    <button id="btn-close-project" class="toolbar-btn" title="Close Project">
+                        <span class="icon">❌</span> Close Project
+                    </button>
                     <button id="btn-preview" class="toolbar-btn" title="Preview (F5)">
                         <span class="icon">👁️</span> Preview
                     </button>
@@ -39,6 +51,10 @@
                 </div>
             </div>
             <div class="header-right">
+                <div class="project-info">
+                    <span id="project-name">Untitled</span>
+                    <span id="project-location" class="project-location">No Project</span>
+                </div>
                 <div class="gui-info">
                     <span id="gui-name">Untitled</span>
                     <span id="gui-size">320x240</span>
@@ -46,8 +62,11 @@
                 <button id="btn-files" class="toolbar-btn" title="File Explorer (Ctrl+E)" onclick="toggleFileChooser()">
                     <span class="icon">📁</span>
                 </button>
-                <button id="btn-settings" class="toolbar-btn" title="Settings">
+                <button id="btn-project-settings" class="toolbar-btn" title="Project Settings">
                     <span class="icon">⚙️</span>
+                </button>
+                <button id="btn-settings" class="toolbar-btn" title="Editor Settings">
+                    <span class="icon">🔧</span>
                 </button>
             </div>
         </header>
@@ -299,30 +318,6 @@
         </div>
     </div>
 
-    <!-- File Chooser Modal -->
-    <div id="modal-open" class="modal hidden">
-        <div class="modal-content modal-large">
-            <h2>Open GUI</h2>
-            <div class="file-browser" id="file-browser">
-                <div class="file-toolbar">
-                    <button id="btn-refresh-files" class="toolbar-btn" onclick="refreshFileChooser()">🔄 Refresh</button>
-                    <button id="btn-new-folder" class="toolbar-btn" onclick="showNewFolderModal()">📁 New Folder</button>
-                    <button id="btn-upload-file" class="toolbar-btn" onclick="showUploadModal()">📤 Upload</button>
-                </div>
-                <div class="file-list" id="file-chooser-list">
-                    <div class="file-chooser-loading" id="file-chooser-loading">Loading...</div>
-                </div>
-            </div>
-            <div class="file-chooser-actions">
-                <span id="file-chooser-path" class="file-path">/</span>
-                <div class="file-actions">
-                    <button id="file-chooser-open" class="btn-primary" onclick="loadSelectedFileChooser()" disabled>Open</button>
-                    <button id="file-chooser-cancel" class="btn-secondary" onclick="hideFileChooser()">Cancel</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- New Folder Modal -->
     <div id="modal-new-folder" class="modal hidden">
         <div class="modal-content">
@@ -415,6 +410,84 @@
         </div>
     </div>
 
+    <!-- Project Modals -->
+    <div id="modal-new-project" class="modal hidden">
+        <div class="modal-content">
+            <h2>New Project</h2>
+            <div class="form-group">
+                <label for="new-project-name">Project Name:</label>
+                <input type="text" id="new-project-name" placeholder="MyProject">
+            </div>
+            <div class="form-group">
+                <label for="new-project-location">Location:</label>
+                <select id="new-project-location">
+                    <option value="webdav">WebDAV (ESP8266)</option>
+                    <option value="local">Local Computer</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="new-project-desc">Description (optional):</label>
+                <input type="text" id="new-project-desc" placeholder="Project description">
+            </div>
+            <div class="form-group">
+                <label for="new-project-author">Author (optional):</label>
+                <input type="text" id="new-project-author" placeholder="Your name">
+            </div>
+            <div class="modal-actions">
+                <button id="btn-new-project-cancel" class="btn-secondary" onclick="document.getElementById('modal-new-project').classList.add('hidden')">Cancel</button>
+                <button id="btn-new-project-create" class="btn-primary" onclick="createNewProjectFromModal()">Create Project</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-projects" class="modal hidden">
+        <div class="modal-content modal-large">
+            <h2>Project Manager</h2>
+            <div class="project-manager-tabs">
+                <button class="tab-btn active" data-tab="webdav-projects">WebDAV Projects</button>
+                <button class="tab-btn" data-tab="local-projects">Local Projects</button>
+            </div>
+            <div class="project-tabs-content">
+                <div id="tab-webdav-projects" class="tab-content active">
+                    <div class="project-toolbar">
+                        <button id="btn-refresh-projects" class="toolbar-btn" onclick="refreshProjectList()">🔄 Refresh</button>
+                    </div>
+                    <div class="project-list" id="project-list-webdav">
+                        <div class="project-empty">Loading...</div>
+                    </div>
+                </div>
+                <div id="tab-local-projects" class="tab-content hidden">
+                    <div class="project-toolbar">
+                        <button id="btn-refresh-local-projects" class="toolbar-btn" onclick="refreshProjectList()">🔄 Refresh</button>
+                    </div>
+                    <div class="project-list" id="project-list-local">
+                        <div class="project-empty">No local projects found</div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button id="btn-projects-close" class="btn-secondary" onclick="hideProjectManager()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-project-settings" class="modal hidden">
+        <div class="modal-content">
+            <h2>Project Settings</h2>
+            <div class="form-group">
+                <label for="default-location-select">Default Project Location:</label>
+                <select id="default-location-select">
+                    <option value="webdav">WebDAV (ESP8266)</option>
+                    <option value="local">Local Computer</option>
+                </select>
+            </div>
+            <div class="modal-actions">
+                <button id="btn-project-settings-cancel" class="btn-secondary" onclick="document.getElementById('modal-project-settings').classList.add('hidden')">Cancel</button>
+                <button id="btn-project-settings-save" class="btn-primary" onclick="setDefaultLocation(document.getElementById('default-location-select').value); document.getElementById('modal-project-settings').classList.add('hidden')">Save</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Scripts - Load in dependency order -->
     <script src="state.js"></script>
     <script src="json_editor.js"></script>
@@ -426,6 +499,7 @@
     <script src="canvas.js"></script>
     <script src="render.js"></script>
     <script src="file_chooser.js"></script>
+    <script src="project_manager.js"></script>
     <script src="editor.js"></script>
     <script src="renderer.js"></script>
 </body>
