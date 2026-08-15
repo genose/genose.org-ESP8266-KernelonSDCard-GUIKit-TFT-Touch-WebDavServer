@@ -415,6 +415,308 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
+## 🎨 GUIKit Web Editor
+
+The **GUIKit Web Editor** is a full-featured web-based editor for creating and managing GUIKit projects directly from your browser.
+
+### Features
+
+- **Project Management**
+  - Create new projects from templates (empty, basic_ui)
+  - Open existing `.GUIKIT` projects from user or system directories
+  - Browse project file tree with recursive directory listing
+  - Recent projects tracking (last 10)
+
+- **File Editing**
+  - Tabbed editor supporting multiple open files
+  - Syntax-aware editing for JSON, JavaScript, CSS, Lua
+  - Live cursor position (Line:X, Col:Y)
+  - Modified file indicators (*)
+  
+- **Contextual Menu**
+  - Long press (~2 seconds) on text fields opens context menu
+  - Copy, Cut, Paste, Select All operations
+  - Clipboard management across files
+
+- **WebDAV Integration**
+  - Seamless connection to ESP8266 WebDAV server
+  - User home directory (`/home/(username)/`) as WebDAV root
+  - Automatic project loading from user's `projects/` directory
+  - System project access for admin users
+
+- **Temp Buffer Support**
+  - Working copies saved to `/tmp/{filename}_edit.txt`
+  - Auto-save to temp buffer on every change
+  - Recovery support if editor closes unexpectedly
+
+### Project Templates
+
+| Template | Description | Files Created |
+|----------|-------------|---------------|
+| `empty` | Blank project | `main_gui.json`, `project.meta.json` |
+| `basic_ui` | Basic UI with button | `main_gui.json`, `scripts/main.js`, `project.meta.json` |
+
+### Usage
+
+1. Open WebDAV connection in editor
+2. Click "New" to create a project or "Open" to browse existing ones
+3. Navigate project tree in left panel
+4. Click files to open in tabbed editor
+5. Edit and save - changes go directly to SD card
+
+---
+
+## 👥 User Management System
+
+### Home Directory Structure
+
+Each user gets their own home directory created from the skeleton template:
+
+```
+/etc/user.skel/                    # Template for new users
+├── README.md                     # User documentation
+└── projects/                     # Default projects directory
+
+/home/(username)/                # User home directory
+├── README.md                     # Copied from skeleton
+├── projects/                     # User's GUIKit projects
+│   ├── MyProject.GUIKIT/
+│   │   ├── main_gui.json
+│   │   ├── project.meta.json
+│   │   ├── scripts/
+│   │   └── styles/
+│   └── AnotherProject.GUIKIT/
+│       └── ...
+```
+
+### User Creation Workflow
+
+1. Admin creates user via `users.GUIKIT`
+2. System creates `/home/(username)/`
+3. Recursively copies contents from `/etc/user.skel/`
+4. Sets user home path in user profile
+5. WebDAV authentication uses this home as root
+
+### System GUIs
+
+| GUI | Purpose | Location |
+|-----|---------|----------|
+| `chooser.GUIKIT` | Project chooser/launcher | `/gui/` |
+| `webdav.GUIKIT` | WebDAV server management | `/gui/` |
+| `users.GUIKIT` | User account management | `/gui/` |
+| `editor.GUIKIT` | Web-based GUI editor | `/gui/` |
+
+---
+
+## 📦 Project File Structure
+
+All GUIKit projects follow the `.GUIKIT` directory convention:
+
+```
+{project_name}.GUIKIT/
+├── main_gui.json          # REQUIRED: Root GUI definition
+├── project.meta.json     # OPTIONAL: Project metadata
+├── assets/               # OPTIONAL: Static resources
+│   ├── images/           # Image files
+│   ├── fonts/            # Font files
+│   └── sounds/           # Audio files
+├── gui/                  # OPTIONAL: Additional GUI files
+│   └── sub_gui.json
+├── scripts/              # OPTIONAL: Script files
+│   ├── main.js           # JavaScript functions
+│   └── helpers.lua       # Lua scripts
+└── styles/               # OPTIONAL: CSS/theme files
+    └── theme.css
+```
+
+### Project Metadata (project.meta.json)
+
+```json
+{
+  "name": "MyProject",
+  "description": "Sample GUIKit project",
+  "author": "Developer Name",
+  "version": "1.0.0",
+  "created": "2026-08-15T00:00:00Z",
+  "modified": "2026-08-15T00:00:00Z",
+  "gui_files": ["main_gui.json", "settings.json"],
+  "scripts": ["scripts/main.js"],
+  "styles": ["styles/theme.css"],
+  "dependencies": ["webdav.GUIKIT"],
+  "category": "user",
+  "type": "application"
+}
+```
+
+### GUI File Format (main_gui.json)
+
+```json
+{
+  "version": "1.0",
+  "name": "MyGUI",
+  "size": { "width": 320, "height": 240 },
+  "background": "#1E1E1E",
+  "theme": "dark",
+  "widgets": [
+    {
+      "id": "my_button",
+      "type": "button",
+      "x": 100, "y": 50,
+      "width": 120, "height": 40,
+      "text": "Click Me",
+      "background": "#1177BB",
+      "action": "my_function"
+    }
+  ]
+}
+```
+
+---
+
+## 💾 Updated SD Card Structure
+
+```
+SD Card Root/
+├── Kernel.bin.gz                    # Compressed kernel binary
+├── index.html                       # Web interface entry point
+├── /etc/                           # System configuration
+│   ├── user.skel/                  # User home template
+│   │   ├── README.md
+│   │   └── projects/
+│   └── guikitloader.conf            # GUIKit loader configuration
+│
+├── /gui/                           # System GUIs (shared)
+│   ├── chooser.GUIKIT/             # Project chooser
+│   │   ├── main_gui.json
+│   │   └── project.meta.json
+│   ├── webdav.GUIKIT/              # WebDAV management
+│   │   ├── main_gui.json
+│   │   ├── project.meta.json
+│   │   └── scripts/webdav.js
+│   ├── users.GUIKIT/               # User management
+│   │   ├── main_gui.json
+│   │   ├── project.meta.json
+│   │   └── scripts/users.js
+│   └── editor.GUIKIT/              # Web editor
+│       ├── main_gui.json
+│       ├── project.meta.json
+│       └── scripts/editor.js
+│
+├── /home/                          # User home directories
+│   └── (username)/                 # Per-user directory
+│       ├── README.md
+│       └── projects/               # User's projects
+│           └── MyProject.GUIKIT/
+│
+├── /system/                        # System data
+│   ├── ui/                          # Legacy UI definitions
+│   ├── dict/                        # Dictionaries
+│   ├── config/                      # Configurations
+│   └── logs/                        # System logs
+│
+└── /tmp/                           # Temporary files
+    └── {filename}_edit.txt          # Editor temp buffers
+```
+
+---
+
+## 🚀 Quick Start with New Features
+
+### 1. First Boot
+
+1. Flash bootloader and copy Kernel.bin to SD card
+2. Insert SD card and power on ESP8266
+3. The `chooser.GUIKIT` loads automatically
+4. Scan and display available `.GUIKIT` projects
+
+### 2. Create Your First User
+
+1. Open `users.GUIKIT` from chooser
+2. Click "New User" button
+3. Enter username, password, permissions
+4. System creates `/home/(username)/` from `/etc/user.skel/`
+
+### 3. WebDAV Access
+
+1. Open `webdav.GUIKIT`
+2. Enter server URL, username, password
+3. Connect - WebDAV root = `/home/(username)/`
+4. Browse and manage files
+
+### 4. Create a Project
+
+1. Open `editor.GUIKIT`
+2. Click "New" button
+3. Enter project name (e.g., "MyApp")
+4. Select template (basic_ui recommended)
+5. Project created at `/home/(username)/projects/MyApp.GUIKIT/`
+6. `main_gui.json` opens automatically
+
+### 5. Edit and Save
+
+1. Modify widgets in the JSON editor
+2. Use contextual menu (long press) for text operations
+3. Click "Save" or "Save All"
+4. Changes written directly to SD card
+
+---
+
+## 🛠️ Script Reference
+
+### GUIKitEditor API (editor.js)
+
+```javascript
+// Initialization
+GUIKitEditor.init();
+
+// Project Management
+GUIKitEditor.newProject();      // Create new project
+GUIKitEditor.openProject();     // Open existing project
+GUIKitEditor.getCurrentProject(); // Get current project name
+
+// File Operations
+GUIKitEditor.openFile(path);    // Open file by path
+GUIKitEditor.saveFile(path, content); // Save file
+GUIKitEditor.getCurrentFile();  // Get current file info
+GUIKitEditor.getFileContent(); // Get current file content
+GUIKitEditor.isModified();      // Check if modified
+
+// Editor Operations
+GUIKitEditor.copy();            // Copy selection
+GUIKitEditor.cut();             // Cut selection  
+GUIKitEditor.paste();           // Paste from clipboard
+GUIKitEditor.selectAll();       // Select all text
+
+// WebDAV
+GUIKitEditor.connectWebDAV();   // Connect to WebDAV
+GUIKitEditor.isConnected();    // Check connection status
+GUIKitEditor.getUserHome();     // Get user home directory
+```
+
+### UserManager API (users.js)
+
+```javascript
+UserManager.init();
+UserManager.create(username, password, permissions);
+UserManager.getByUsername(username);
+UserManager.getAll();
+UserManager.update(username, updates);
+UserManager.remove(username);
+```
+
+### WebDAVManager API (webdav.js)
+
+```javascript
+WebDAVManager.connect(url, username, password);
+WebDAVManager.disconnect();
+WebDAVManager.isConnected();
+WebDAVManager.getUserHome();
+WebDAVManager.setUser(username, password, home);
+WebDAVManager.browse();
+```
+
+---
+
 ## 🙏 Acknowledgments
 
 - [TFT_eSPI](https://github.com/Bodmer/TFT_eSPI) - TFT display library
@@ -432,4 +734,5 @@ For questions, issues, or feature requests, please open an issue on GitHub.
 
 *Generated from architecture analysis of discussion_guikit.txt*
 *Documentation extracted and organized by Mistral Vibe*
+*GUIKit Web Editor and User Management System added*
 

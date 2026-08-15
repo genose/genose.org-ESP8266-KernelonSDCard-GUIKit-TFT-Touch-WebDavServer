@@ -3,7 +3,30 @@
  * 
  * Handles user account management on the ESP8266
  * Allows creating, editing, deleting users and managing permissions
+ * 
+ * USAGE:
+ *   --help     Show this help message
+ *   --version  Show version information
+ *   
+ * EXAMPLES:
+ *   UserManager.init();                     // Initialize user manager
+ *   UserManager.create(user);               // Create a new user
+ *   UserManager.getByUsername('admin');     // Get user by name
+ *   UserManager.remove('user');             // Delete a user
+ *   
+ * FEATURES:
+ *   - User CRUD operations
+ *   - Home directory creation from /etc/user.skel/
+ *   - Permission levels: admin, user, guest
+ *   - Search and filtering
  */
+
+// ============================================================================
+// Version Information
+// ============================================================================
+
+var USERS_VERSION = '1.0.0';
+var USERS_NAME = 'UserManager';
 
 // ============================================================================
 // Global State
@@ -601,10 +624,126 @@ var UserManager = {
     }
 };
 
+// ============================================================================
+// Help System
+// ============================================================================
+
+/**
+ * Show help information for UserManager
+ */
+function users_help(widget, event) {
+    var helpText = USERS_NAME + ' v' + USERS_VERSION + '\n\n' +
+        'USAGE:\n' +
+        '  --help     Show this help message\n' +
+        '  --version  Show version information\n\n' +
+        
+        'COMMANDS:\n' +
+        '  init                    Initialize user manager\n' +
+        '  refresh                 Refresh user list\n' +
+        '  create                  Create new user\n' +
+        '  edit                    Edit selected user\n' +
+        '  remove                  Delete selected user\n' +
+        '  getByUsername          Get user by username\n' +
+        '  getAll                 Get all users\n\n' +
+        
+        'FEATURES:\n' +
+        '  - User CRUD: Create, Read, Update, Delete\n' +
+        '  - Home Directory: Auto-create /home/(username)/ from /etc/user.skel/\n' +
+        '  - Permissions: admin, user, guest levels\n' +
+        '  - Search: Filter users by username\n' +
+        '  - Validation: Username uniqueness, password length\n' +
+        '  - Storage: LocalStorage or UserStorage backend\n\n' +
+        
+        'PERMISSION LEVELS:\n' +
+        '  admin   - Full access, can manage users\n' +
+        '  user    - Normal user, can edit own projects\n' +
+        '  guest   - Read-only access\n\n' +
+        
+        'EXAMPLES:\n' +
+        '  UserManager.init();\n' +
+        '  UserManager.create({ username: "john", password: "secret", permissions: "user" });\n' +
+        '  UserManager.getByUsername("john");\n' +
+        '  UserManager.add({ username: "jane", password: "pass", permissions: "admin" });\n' +
+        '  UserManager.remove("jane");\n\n' +
+        
+        'USER OBJECT STRUCTURE:\n' +
+        '  {\n' +
+        '    username: string,           // Unique username\n' +
+        '    password: string,           // Password (hashed in production)\n' +
+        '    permissions: string,        // "admin", "user", or "guest"\n' +
+        '    home: string,               // Home directory path\n' +
+        '    created: string,            // ISO timestamp\n' +
+        '    lastLogin: string|null      // Last login timestamp\n' +
+        '  }';
+    
+    updateInfoText('Help: See console for UserManager details');
+    
+    if (typeof console !== 'undefined' && console.log) {
+        console.log(helpText);
+    }
+    
+    return helpText;
+}
+
+/**
+ * Show version information
+ */
+function users_version(widget, event) {
+    var versionText = USERS_NAME + ' v' + USERS_VERSION + '\n' +
+        'Build: 2026-08-15\n' +
+        'Features: user_crud, home_directory_creation, permission_management, search\n' +
+        'License: MIT\n' +
+        'Author: GUIKit System';
+    
+    updateInfoText('Version: ' + USERS_VERSION);
+    
+    if (typeof console !== 'undefined' && console.log) {
+        console.log(versionText);
+    }
+    
+    return versionText;
+}
+
+/**
+ * Process command line arguments
+ */
+function processUsersArgs(args) {
+    if (!args) return;
+    
+    for (var i = 0; i < args.length; i++) {
+        switch (args[i]) {
+            case '--help':
+            case '-h':
+            case 'help':
+            case '?':
+                users_help(null, null);
+                return true;
+            case '--version':
+            case '-v':
+                users_version(null, null);
+                return true;
+        }
+    }
+    return false;
+}
+
+// ============================================================================
+// Global API Extension with Help
+// ============================================================================
+
+// Extend UserManager with help functions
+UserManager.help = users_help;
+UserManager.version = users_version;
+UserManager.showHelp = users_help;
+UserManager.showVersion = users_version;
+UserManager.processArgs = processUsersArgs;
+
 // Make available globally
 if (typeof window !== 'undefined') {
     window.UserManager = UserManager;
+    window.UserManagerHelp = users_help(null, null);
 }
 if (typeof global !== 'undefined') {
     global.UserManager = UserManager;
+    global.UserManagerHelp = users_help(null, null);
 }

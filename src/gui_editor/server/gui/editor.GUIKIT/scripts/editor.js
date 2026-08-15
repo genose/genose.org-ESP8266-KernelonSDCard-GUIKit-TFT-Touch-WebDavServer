@@ -4,7 +4,31 @@
  * Full-featured web-based editor for GUIKit projects with WebDAV integration
  * Supports: project management, JSON/GUI editing, script editing, temp buffers,
  * contextual menus, and concurrent file management
+ * 
+ * USAGE:
+ *   --help     Show this help message
+ *   --version  Show version information
+ *   
+ * EXAMPLES:
+ *   GUIKitEditor.init();                    // Initialize editor
+ *   GUIKitEditor.newProject();              // Create new project
+ *   GUIKitEditor.openFile('/path/to/file'); // Open a file
+ *   GUIKitEditor.saveFile(path, content);   // Save a file
+ *   
+ * FEATURES:
+ *   - Project templates (empty, basic_ui)
+ *   - Tabbed file editor
+ *   - Contextual menu (long press ~2sec)
+ *   - Temp buffer support (/tmp/filename_edit.txt)
+ *   - WebDAV integration with user home directories
  */
+
+// ============================================================================
+// Version Information
+// ============================================================================
+
+var EDITOR_VERSION = '1.0.0';
+var EDITOR_NAME = 'GUIKit Web Editor';
 
 // ============================================================================
 // Global State
@@ -1278,10 +1302,123 @@ var GUIKitEditor = {
     getUserHome: function() { return EditorState.userHome; }
 };
 
+// ============================================================================
+// Help System
+// ============================================================================
+
+/**
+ * Show help information
+ * Called with --help argument or help command
+ */
+function editor_help(widget, event) {
+    var helpText = EDITOR_NAME + ' v' + EDITOR_VERSION + '\n\n' +
+        'USAGE:\n' +
+        '  --help     Show this help message\n' +
+        '  --version  Show version information\n\n' +
+        
+        'COMMANDS:\n' +
+        '  init                    Initialize editor\n' +
+        '  newProject              Create new project\n' +
+        '  openProject             Open existing project\n' +
+        '  save                    Save current file\n' +
+        '  saveAll                 Save all open files\n' +
+        '  connectWebDAV           Connect to WebDAV server\n\n' +
+        
+        'FEATURES:\n' +
+        '  - Project Management: Create, open, browse projects\n' +
+        '  - File Editing: Tabbed editor with multiple files\n' +
+        '  - Context Menu: Long press (~2sec) for Copy/Cut/Paste/Select All\n' +
+        '  - Temp Buffers: Auto-saved to /tmp/filename_edit.txt\n' +
+        '  - WebDAV: User home directory as root\n' +
+        '  - Templates: empty, basic_ui project templates\n\n' +
+        
+        'EXAMPLES:\n' +
+        '  GUIKitEditor.init();\n' +
+        '  GUIKitEditor.newProject();\n' +
+        '  GUIKitEditor.openFile("/home/user/projects/MyApp.GUIKIT/main_gui.json");\n' +
+        '  GUIKitEditor.saveFile(path, content);\n\n' +
+        
+        'KEYBINDINGS:\n' +
+        '  Long Press: Show context menu\n' +
+        '  Tab Click: Switch between open files\n' +
+        '  Tab X: Close file\n\n' +
+        
+        'PROJECT TEMPLATES:\n' +
+        '  empty      - Blank project (main_gui.json, project.meta.json)\n' +
+        '  basic_ui   - Button + label example (main_gui.json, scripts/main.js)\n';
+    
+    updateStatus('Help: See console for details');
+    
+    if (typeof console !== 'undefined' && console.log) {
+        console.log(helpText);
+    }
+    
+    return helpText;
+}
+
+/**
+ * Show version information
+ */
+function editor_version(widget, event) {
+    var versionText = EDITOR_NAME + ' v' + EDITOR_VERSION + '\n' +
+        'Build: 2026-08-15\n' +
+        'Features: project_management, json_editor, script_editor, webdav_integration, temp_buffer_support, contextual_menu\n' +
+        'License: MIT\n' +
+        'Author: GUIKit System';
+    
+    updateStatus('Version: ' + EDITOR_VERSION);
+    
+    if (typeof console !== 'undefined' && console.log) {
+        console.log(versionText);
+    }
+    
+    return versionText;
+}
+
+/**
+ * Process command line arguments
+ * Supports --help and --version
+ */
+function processEditorArgs(args) {
+    if (!args) return;
+    
+    for (var i = 0; i < args.length; i++) {
+        switch (args[i]) {
+            case '--help':
+            case '-h':
+            case 'help':
+            case '?':
+                editor_help(null, null);
+                return true;
+            case '--version':
+            case '-v':
+                editor_version(null, null);
+                return true;
+        }
+    }
+    return false;
+}
+
+// ============================================================================
+// Global API Extension with Help
+// ============================================================================
+
+// Extend GUIKitEditor with help functions
+GUIKitEditor.help = editor_help;
+GUIKitEditor.version = editor_version;
+GUIKitEditor.showHelp = editor_help;
+GUIKitEditor.showVersion = editor_version;
+GUIKitEditor.processArgs = processEditorArgs;
+
 // Make available globally
 if (typeof window !== 'undefined') {
     window.GUIKitEditor = GUIKitEditor;
+    window.GUIKitEditorHelp = helpText;  // Pre-generated help
 }
 if (typeof global !== 'undefined') {
     global.GUIKitEditor = GUIKitEditor;
+    global.GUIKitEditorHelp = helpText;
 }
+
+// Export help text for external use
+var helpText = editor_help(null, null);
