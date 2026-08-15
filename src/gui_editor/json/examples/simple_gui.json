@@ -1,0 +1,99 @@
+{
+  "version": "1.0",
+  "name": "Simple GUI",
+  "description": "A simple demonstration GUI with basic widgets",
+  "size": {
+    "width": 320,
+    "height": 240
+  },
+  "background": "#000000",
+  "orientation": "portrait",
+  "widgets": [
+    {
+      "id": "title_label",
+      "type": "label",
+      "text": "GUIKit Demo",
+      "x": 0,
+      "y": 10,
+      "width": 320,
+      "height": 30,
+      "style": {
+        "fg_color": "#FFFFFF",
+        "font_size": 20,
+        "text_align": "center",
+        "font": "large"
+      }
+    },
+    {
+      "id": "start_button",
+      "type": "button",
+      "text": "Start",
+      "x": 100,
+      "y": 60,
+      "width": 120,
+      "height": 40,
+      "style": {
+        "bg_color": "#008000",
+        "fg_color": "#FFFFFF",
+        "font_size": 16,
+        "border_width": 0
+      },
+      "on_click": "handle_start"
+    },
+    {
+      "id": "status_label",
+      "type": "label",
+      "text": "Status: Ready",
+      "x": 10,
+      "y": 120,
+      "width": 300,
+      "height": 20,
+      "style": {
+        "fg_color": "#00FF00",
+        "font_size": 12,
+        "text_align": "center"
+      }
+    },
+    {
+      "id": "progress_indicator",
+      "type": "progress_bar",
+      "x": 10,
+      "y": 160,
+      "width": 300,
+      "height": 20,
+      "value": 0,
+      "max": 100,
+      "direction": "horizontal",
+      "show_text": true,
+      "style": {
+        "border_width": 1,
+        "border_color": "#404040"
+      }
+    },
+    {
+      "id": "exit_button",
+      "type": "button",
+      "text": "Exit",
+      "x": 100,
+      "y": 200,
+      "width": 120,
+      "height": 30,
+      "style": {
+        "bg_color": "#800000",
+        "fg_color": "#FFFFFF",
+        "font_size": 14
+      },
+      "on_click": "handle_exit"
+    }
+  ],
+  "styles": {},
+  "scripts": {
+    "handle_start": "function() { console.log('Start clicked'); }",
+    "handle_exit": "function() { console.log('Exit clicked'); }"
+  },
+  "metadata": {
+    "author": "GUIKit",
+    "version": "1.0",
+    "created": "2024-01-01"
+  }
+}

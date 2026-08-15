@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GUIKit Web Editor</title>
+    <link rel="stylesheet" href="styles/editor.css">
+    <link rel="stylesheet" href="styles/widgets.css">
+    <script src="https://cdn.jsdelivr.net/npm/ajv@8/dist/ajv.min.js"></script>
+</head>
+<body>
+    <div class="editor-container">
+        <!-- Header -->
+        <header class="editor-header">
+            <div class="header-left">
+                <h1>GUIKit Web Editor</h1>
+                <span class="version">v1.0</span>
+            </div>
+            <div class="header-center">
+                <div class="toolbar">
+                    <button id="btn-new" class="toolbar-btn" title="New GUI (Ctrl+N)">
+                        <span class="icon">📄</span> New
+                    </button>
+                    <button id="btn-open" class="toolbar-btn" title="Open GUI (Ctrl+O)">
+                        <span class="icon">📂</span> Open
+                    </button>
+                    <button id="btn-save" class="toolbar-btn" title="Save GUI (Ctrl+S)">
+                        <span class="icon">💾</span> Save
+                    </button>
+                    <button id="btn-save-as" class="toolbar-btn" title="Save As">
+                        <span class="icon">💾</span> Save As
+                    </button>
+                    <button id="btn-preview" class="toolbar-btn" title="Preview (F5)">
+                        <span class="icon">👁️</span> Preview
+                    </button>
+                    <button id="btn-export" class="toolbar-btn" title="Export to C">
+                        <span class="icon">📤</span> Export
+                    </button>
+                </div>
+            </div>
+            <div class="header-right">
+                <div class="gui-info">
+                    <span id="gui-name">Untitled</span>
+                    <span id="gui-size">320x240</span>
+                </div>
+                <button id="btn-settings" class="toolbar-btn" title="Settings">
+                    <span class="icon">⚙️</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <div class="main-content">
+            <!-- Left Sidebar - Widget Palette -->
+            <aside class="sidebar left-sidebar" id="widget-palette">
+                <div class="sidebar-header">
+                    <h2>Widget Palette</h2>
+                    <input type="text" id="widget-search" placeholder="Search widgets...">
+                </div>
+                <div class="widget-categories">
+                    <div class="category" data-category="basic">
+                        <h3>📱 Basic</h3>
+                        <div class="widget-item" draggable="true" data-type="view">
+                            <span class="widget-icon">📦</span>
+                            <span class="widget-name">View</span>
+                        </div>
+                        <div class="widget-item" draggable="true" data-type="label">
+                            <span class="widget-icon">📝</span>
+                            <span class="widget-name">Label</span>
+                        </div>
+                        <div class="widget-item" draggable="true" data-type="button">
+                            <span class="widget-icon">🔘</span>
+                            <span class="widget-name">Button</span>
+                        </div>
+                        <div class="widget-item" draggable="true" data-type="image">
+                            <span class="widget-icon">🖼️</span>
+                            <span class="widget-name">Image</span>
+                        </div>
+                    </div>
+                    
+                    <div class="category" data-category="input">
+                        <h3>⌨️ Input</h3>
+                        <div class="widget-item" draggable="true" data-type="text_input">
+                            <span class="widget-icon">💬</span>
+                            <span class="widget-name">Text Input</span>
+                        </div>
+                        <div class="widget-item" draggable="true" data-type="text_editor">
+                            <span class="widget-icon">📄</span>
+                            <span class="widget-name">Text Editor</span>
+                        </div>
+                        <div class="widget-item" draggable="true" data-type="slider">
+                            <span class="widget-icon">🎚️</span>
+                            <span class="widget-name">Slider</span>
+                        </div>
+                        <div class="widget-item" draggable="true" data-type="dropdown">
+                            <span class="widget-icon">📋</span>
+                            <span class="widget-name">Dropdown</span>
+                        </div>
+                    </div>
+                    
+                    <div class="category" data-category="controls">
+                        <h3>🎛️ Controls</h3>
+                        <div class="widget-item" draggable="true" data-type="checkbox">
+                            <span class="widget-icon">✅</span>
+                            <span class="widget-name">Checkbox</span>
+                        </div>
+                        <div class="widget-item" draggable="true" data-type="radio_button">
+                            <span class="widget-icon">🔘</span>
+                            <span class="widget-name">Radio Button</span>
+                        </div>
+                        <div class="widget-item" draggable="true" data-type="progress_bar">
+                            <span class="widget-icon">📊</span>
+                            <span class="widget-name">Progress Bar</span>
+                        </div>
+                    </div>
+                    
+                    <div class="category" data-category="special">
+                        <h3>✨ Special</h3>
+                        <div class="widget-item" draggable="true" data-type="canvas">
+                            <span class="widget-icon">🎨</span>
+                            <span class="widget-name">Canvas</span>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Center - Canvas & Preview -->
+            <main class="center-content">
+                <!-- Canvas Area -->
+                <div class="canvas-container">
+                    <div class="canvas-toolbar">
+                        <button id="btn-zoom-in" class="zoom-btn" title="Zoom In (+)">+</button>
+                        <button id="btn-zoom-out" class="zoom-btn" title="Zoom Out (-)">-</button>
+                        <button id="btn-zoom-reset" class="zoom-btn" title="Reset Zoom (1:1)">1:1</button>
+                        <button id="btn-grid" class="zoom-btn active" title="Toggle Grid">🏗️</button>
+                        <button id="btn-snap" class="zoom-btn active" title="Toggle Snap to Grid">🧲</button>
+                        <span class="zoom-indicator">100%</span>
+                    </div>
+                    
+                    <!-- The GUI Canvas - renders at actual device size -->
+                    <div id="gui-canvas" class="gui-canvas" 
+                         style="width: 320px; height: 240px; background-color: #000000;">
+                        <!-- Widgets will be rendered here -->
+                    </div>
+                    
+                    <!-- Resize handles -->
+                    <div class="resize-handle top"></div>
+                    <div class="resize-handle right"></div>
+                    <div class="resize-handle bottom"></div>
+                    <div class="resize-handle left"></div>
+                    <div class="resize-handle top-right"></div>
+                    <div class="resize-handle bottom-right"></div>
+                    <div class="resize-handle bottom-left"></div>
+                    <div class="resize-handle top-left"></div>
+                </div>
+
+                <!-- Preview Panel (toggleable) -->
+                <div id="preview-panel" class="preview-panel hidden">
+                    <div class="preview-header">
+                        <h3>Live Preview</h3>
+                        <button id="btn-close-preview" class="close-btn">&times;</button>
+                    </div>
+                    <canvas id="preview-canvas" width="320" height="240"></canvas>
+                </div>
+            </main>
+
+            <!-- Right Sidebar - Property Inspector -->
+            <aside class="sidebar right-sidebar" id="property-inspector">
+                <div class="sidebar-header">
+                    <h2>Property Inspector</h2>
+                    <span id="inspector-title" class="inspector-title">No Selection</span>
+                </div>
+                <div id="properties-container" class="properties-container">
+                    <div class="no-selection">
+                        <p>Select a widget or the canvas to edit properties</p>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Bottom Panel - Hierarchy & JSON -->
+            <div class="bottom-panel" id="bottom-panel">
+                <div class="panel-tabs">
+                    <button class="tab-btn active" data-tab="hierarchy">Hierarchy</button>
+                    <button class="tab-btn" data-tab="json">JSON</button>
+                    <button class="tab-btn" data-tab="console">Console</button>
+                </div>
+                <div class="panel-content">
+                    <!-- Hierarchy Tab -->
+                    <div id="tab-hierarchy" class="tab-content active">
+                        <div class="hierarchy-tree" id="hierarchy-tree">
+                            <div class="tree-item root" data-id="root">
+                                <span class="tree-toggle">▼</span>
+                                <span class="tree-icon">🌐</span>
+                                <span class="tree-name">GUI Root</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- JSON Tab -->
+                    <div id="tab-json" class="tab-content hidden">
+                        <textarea id="json-editor" class="json-editor" spellcheck="false"></textarea>
+                        <div class="json-actions">
+                            <button id="btn-format-json" class="action-btn">Format JSON</button>
+                            <button id="btn-validate-json" class="action-btn">Validate</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Console Tab -->
+                    <div id="tab-console" class="tab-content hidden">
+                        <div class="console-output" id="console-output">
+                            <div class="console-line">GUIKit Web Editor - Ready</div>
+                        </div>
+                        <div class="console-input">
+                            <input type="text" id="console-input" placeholder="Enter command...">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Status Bar -->
+        <footer class="status-bar">
+            <div class="status-left">
+                <span id="status-widget-count">0 widgets</span>
+                <span id="status-selection">| No selection</span>
+            </div>
+            <div class="status-center">
+                <span id="status-cursor">| Cursor: (0, 0)</span>
+            </div>
+            <div class="status-right">
+                <span id="status-file">| New GUI</span>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Modals -->
+    <div id="modal-new" class="modal hidden">
+        <div class="modal-content">
+            <h2>New GUI</h2>
+            <div class="form-group">
+                <label for="new-name">Name:</label>
+                <input type="text" id="new-name" value="Untitled GUI">
+            </div>
+            <div class="form-group">
+                <label for="new-width">Width:</label>
+                <input type="number" id="new-width" value="320" min="1" max="10000">
+            </div>
+            <div class="form-group">
+                <label for="new-height">Height:</label>
+                <input type="number" id="new-height" value="240" min="1" max="10000">
+            </div>
+            <div class="form-group">
+                <label for="new-bg">Background:</label>
+                <input type="color" id="new-bg" value="#000000">
+            </div>
+            <div class="modal-actions">
+                <button id="btn-new-cancel" class="btn-secondary">Cancel</button>
+                <button id="btn-new-create" class="btn-primary">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-open" class="modal hidden">
+        <div class="modal-content modal-large">
+            <h2>Open GUI</h2>
+            <div class="file-browser" id="file-browser">
+                <div class="file-toolbar">
+                    <button id="btn-refresh-files" class="toolbar-btn">🔄 Refresh</button>
+                    <button id="btn-new-folder" class="toolbar-btn">📁 New Folder</button>
+                </div>
+                <div class="file-list" id="file-list">
+                    <div class="file-item folder" data-path="/">
+                        <span class="file-icon">📁</span>
+                        <span class="file-name">/ (Root)</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button id="btn-open-cancel" class="btn-secondary">Cancel</button>
+                <button id="btn-open-select" class="btn-primary">Open</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-save" class="modal hidden">
+        <div class="modal-content">
+            <h2>Save GUI</h2>
+            <div class="form-group">
+                <label for="save-name">Filename:</label>
+                <input type="text" id="save-name" value="untitled.json">
+            </div>
+            <div class="modal-actions">
+                <button id="btn-save-cancel" class="btn-secondary">Cancel</button>
+                <button id="btn-save-confirm" class="btn-primary">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts - Load in dependency order -->
+    <script src="state.js"></script>
+    <script src="json_editor.js"></script>
+    <script src="widgets.js"></script>
+    <script src="hierarchy.js"></script>
+    <script src="history.js"></script>
+    <script src="context_menu.js"></script>
+    <script src="drag_drop.js"></script>
+    <script src="canvas.js"></script>
+    <script src="render.js"></script>
+    <script src="editor.js"></script>
+    <script src="renderer.js"></script>
+</body>
+</html>

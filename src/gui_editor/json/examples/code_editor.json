@@ -1,0 +1,225 @@
+{
+  "version": "1.0",
+  "name": "Code Editor",
+  "description": "A simple code editor widget with syntax highlighting",
+  "size": {
+    "width": 320,
+    "height": 240
+  },
+  "background": "#1E1E1E",
+  "orientation": "portrait",
+  "widgets": [
+    {
+      "id": "editor_container",
+      "type": "view",
+      "x": 0,
+      "y": 0,
+      "width": 320,
+      "height": 200,
+      "style": {
+        "bg_color": "#1E1E1E",
+        "border_color": "#333333",
+        "border_width": 1
+      },
+      "children": [
+        {
+          "id": "code_editor",
+          "type": "text_editor",
+          "text": "// Welcome to GUIKit Code Editor\n// Type your code here...\n\nint main() {\n    // Your code here\n    return 0;\n}\n\n// Use Ctrl+S to save\n// Use arrow keys to navigate",
+          "x": 0,
+          "y": 0,
+          "width": 320,
+          "height": 200,
+          "style": {
+            "bg_color": "#1E1E1E",
+            "fg_color": "#D4D4D4",
+            "font": "monospace",
+            "font_size": 12,
+            "border_width": 0
+          },
+          "read_only": false,
+          "show_line_numbers": true,
+          "word_wrap": false,
+          "scrollable": {
+            "x": true,
+            "y": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "status_bar",
+      "type": "view",
+      "x": 0,
+      "y": 200,
+      "width": 320,
+      "height": 24,
+      "style": {
+        "bg_color": "#252526",
+        "border_color": "#333333",
+        "border_width": 1
+      },
+      "children": [
+        {
+          "id": "status_text",
+          "type": "label",
+          "text": "Ready",
+          "x": 10,
+          "y": 2,
+          "width": 100,
+          "height": 20,
+          "style": {
+            "fg_color": "#808080",
+            "font_size": 10
+          }
+        },
+        {
+          "id": "line_col",
+          "type": "label",
+          "text": "Line: 1, Col: 1",
+          "x": 120,
+          "y": 2,
+          "width": 100,
+          "height": 20,
+          "style": {
+            "fg_color": "#808080",
+            "font_size": 10
+          }
+        },
+        {
+          "id": "save_button",
+          "type": "button",
+          "text": "Save",
+          "x": 280,
+          "y": 2,
+          "width": 35,
+          "height": 20,
+          "style": {
+            "bg_color": "#0078D4",
+            "fg_color": "#FFFFFF",
+            "font_size": 10,
+            "border_width": 0
+          },
+          "on_click": "save_code"
+        }
+      ]
+    },
+    {
+      "id": "toolbar",
+      "type": "view",
+      "x": 0,
+      "y": 224,
+      "width": 320,
+      "height": 16,
+      "style": {
+        "bg_color": "#2D2D30",
+        "border_color": "#333333",
+        "border_width": 1
+      },
+      "children": [
+        {
+          "id": "new_btn",
+          "type": "button",
+          "text": "New",
+          "x": 0,
+          "y": 0,
+          "width": 40,
+          "height": 16,
+          "style": {
+            "bg_color": "#2D2D30",
+            "fg_color": "#CCCCCC",
+            "font_size": 10,
+            "border_width": 0
+          },
+          "on_click": "new_file"
+        },
+        {
+          "id": "open_btn",
+          "type": "button",
+          "text": "Open",
+          "x": 40,
+          "y": 0,
+          "width": 40,
+          "height": 16,
+          "style": {
+            "bg_color": "#2D2D30",
+            "fg_color": "#CCCCCC",
+            "font_size": 10,
+            "border_width": 0
+          },
+          "on_click": "open_file"
+        },
+        {
+          "id": "cut_btn",
+          "type": "button",
+          "text": "Cut",
+          "x": 80,
+          "y": 0,
+          "width": 40,
+          "height": 16,
+          "style": {
+            "bg_color": "#2D2D30",
+            "fg_color": "#CCCCCC",
+            "font_size": 10,
+            "border_width": 0
+          },
+          "on_click": "cut_text"
+        },
+        {
+          "id": "copy_btn",
+          "type": "button",
+          "text": "Copy",
+          "x": 120,
+          "y": 0,
+          "width": 40,
+          "height": 16,
+          "style": {
+            "bg_color": "#2D2D30",
+            "fg_color": "#CCCCCC",
+            "font_size": 10,
+            "border_width": 0
+          },
+          "on_click": "copy_text"
+        },
+        {
+          "id": "paste_btn",
+          "type": "button",
+          "text": "Paste",
+          "x": 160,
+          "y": 0,
+          "width": 40,
+          "height": 16,
+          "style": {
+            "bg_color": "#2D2D30",
+            "fg_color": "#CCCCCC",
+            "font_size": 10,
+            "border_width": 0
+          },
+          "on_click": "paste_text"
+        }
+      ]
+    }
+  ],
+  "styles": {
+    "editor_style": {
+      "bg_color": "#1E1E1E",
+      "fg_color": "#D4D4D4",
+      "font": "monospace",
+      "font_size": 12
+    }
+  },
+  "scripts": {
+    "save_code": "function() { console.log('Saving code...'); }",
+    "new_file": "function() { console.log('New file'); }",
+    "open_file": "function() { console.log('Open file'); }",
+    "cut_text": "function() { console.log('Cut text'); }",
+    "copy_text": "function() { console.log('Copy text'); }",
+    "paste_text": "function() { console.log('Paste text'); }"
+  },
+  "metadata": {
+    "author": "GUIKit",
+    "version": "1.0",
+    "created": "2024-01-01",
+    "features": ["syntax_highlighting", "line_numbers", "auto_indent"]
+  }
+}

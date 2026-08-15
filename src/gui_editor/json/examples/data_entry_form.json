@@ -1,0 +1,251 @@
+{
+  "version": "1.0",
+  "name": "Data Entry Form",
+  "description": "A form for data entry with various input widgets",
+  "size": {
+    "width": 320,
+    "height": 240
+  },
+  "background": "#1A1A2E",
+  "orientation": "portrait",
+  "widgets": [
+    {
+      "id": "form_container",
+      "type": "view",
+      "x": 0,
+      "y": 0,
+      "width": 320,
+      "height": 240,
+      "scrollable": {
+        "x": false,
+        "y": true
+      },
+      "style": {
+        "bg_color": "#1A1A2E",
+        "border_width": 0
+      },
+      "children": [
+        {
+          "id": "form_title",
+          "type": "label",
+          "text": "User Information",
+          "x": 10,
+          "y": 10,
+          "width": 300,
+          "height": 24,
+          "style": {
+            "fg_color": "#FFFFFF",
+            "font_size": 18,
+            "text_align": "center",
+            "font": "medium"
+          }
+        },
+        {
+          "id": "name_label",
+          "type": "label",
+          "text": "Name:",
+          "x": 10,
+          "y": 40,
+          "width": 80,
+          "height": 20,
+          "style": {
+            "fg_color": "#E0E0E0",
+            "font_size": 12
+          }
+        },
+        {
+          "id": "name_input",
+          "type": "text_input",
+          "text": "",
+          "x": 100,
+          "y": 40,
+          "width": 200,
+          "height": 24,
+          "placeholder": "Enter your name",
+          "max_length": 50,
+          "style": {
+            "bg_color": "#2D2D2D",
+            "fg_color": "#FFFFFF",
+            "border_color": "#404040"
+          }
+        },
+        {
+          "id": "email_label",
+          "type": "label",
+          "text": "Email:",
+          "x": 10,
+          "y": 70,
+          "width": 80,
+          "height": 20,
+          "style": {
+            "fg_color": "#E0E0E0",
+            "font_size": 12
+          }
+        },
+        {
+          "id": "email_input",
+          "type": "text_input",
+          "text": "",
+          "x": 100,
+          "y": 70,
+          "width": 200,
+          "height": 24,
+          "placeholder": "Enter your email",
+          "max_length": 100,
+          "style": {
+            "bg_color": "#2D2D2D",
+            "fg_color": "#FFFFFF",
+            "border_color": "#404040"
+          }
+        },
+        {
+          "id": "age_label",
+          "type": "label",
+          "text": "Age:",
+          "x": 10,
+          "y": 100,
+          "width": 80,
+          "height": 20,
+          "style": {
+            "fg_color": "#E0E0E0",
+            "font_size": 12
+          }
+        },
+        {
+          "id": "age_slider",
+          "type": "slider",
+          "x": 100,
+          "y": 100,
+          "width": 200,
+          "height": 20,
+          "min_value": 18,
+          "max_value": 100,
+          "value": 25,
+          "on_change": "update_age_label"
+        },
+        {
+          "id": "age_value",
+          "type": "label",
+          "text": "25",
+          "x": 305,
+          "y": 100,
+          "width": 30,
+          "height": 20,
+          "style": {
+            "fg_color": "#00FF00",
+            "font_size": 12,
+            "text_align": "right"
+          }
+        },
+        {
+          "id": "gender_label",
+          "type": "label",
+          "text": "Gender:",
+          "x": 10,
+          "y": 130,
+          "width": 80,
+          "height": 20,
+          "style": {
+            "fg_color": "#E0E0E0",
+            "font_size": 12
+          }
+        },
+        {
+          "id": "gender_male",
+          "type": "radio_button",
+          "text": "Male",
+          "x": 100,
+          "y": 130,
+          "width": 80,
+          "height": 20,
+          "group": "gender",
+          "checked": true,
+          "style": {
+            "fg_color": "#FFFFFF"
+          }
+        },
+        {
+          "id": "gender_female",
+          "type": "radio_button",
+          "text": "Female",
+          "x": 190,
+          "y": 130,
+          "width": 80,
+          "height": 20,
+          "group": "gender",
+          "style": {
+            "fg_color": "#FFFFFF"
+          }
+        },
+        {
+          "id": "country_label",
+          "type": "label",
+          "text": "Country:",
+          "x": 10,
+          "y": 160,
+          "width": 80,
+          "height": 20,
+          "style": {
+            "fg_color": "#E0E0E0",
+            "font_size": 12
+          }
+        },
+        {
+          "id": "country_dropdown",
+          "type": "dropdown",
+          "x": 100,
+          "y": 160,
+          "width": 200,
+          "height": 28,
+          "items": ["USA", "UK", "Canada", "Australia", "Germany", "France", "Japan", "China"],
+          "selected_index": 0
+        },
+        {
+          "id": "newsletter_checkbox",
+          "type": "checkbox",
+          "text": "Subscribe to newsletter",
+          "x": 100,
+          "y": 195,
+          "width": 200,
+          "height": 20,
+          "checked": true,
+          "style": {
+            "fg_color": "#FFFFFF"
+          }
+        },
+        {
+          "id": "submit_button",
+          "type": "button",
+          "text": "Submit",
+          "x": 100,
+          "y": 220,
+          "width": 120,
+          "height": 35,
+          "style": {
+            "bg_color": "#0080FF",
+            "fg_color": "#FFFFFF",
+            "font_size": 14,
+            "border_width": 0
+          },
+          "on_click": "submit_form"
+        }
+      ]
+    }
+  ],
+  "styles": {
+    "form_style": {
+      "bg_color": "#1A1A2E",
+      "fg_color": "#E0E0E0",
+      "font_size": 12
+    }
+  },
+  "scripts": {
+    "update_age_label": "function(value) { document.getElementById('age_value').text = value; }",
+    "submit_form": "function() { console.log('Form submitted'); }"
+  },
+  "metadata": {
+    "author": "GUIKit",
+    "version": "1.0",
+    "created": "2024-01-01"
+  }
+}

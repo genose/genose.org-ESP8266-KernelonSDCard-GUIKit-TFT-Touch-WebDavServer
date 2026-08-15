@@ -1,0 +1,472 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://genose.org/gui-editor/gui-schema-v1.0.json",
+  "title": "GUIKit GUI Definition Schema",
+  "description": "JSON Schema for GUIKit GUI definitions - Web-based JSON GUI Board Rendering",
+  "version": "1.0",
+  
+  "definitions": {
+    "color": {
+      "description": "Color in hex format (RRGGBB or #RRGGBB)",
+      "oneOf": [
+        {"type": "string", "pattern": "^#[0-9A-Fa-f]{6}$"},
+        {"type": "string", "pattern": "^[0-9A-Fa-f]{6}$"},
+        {"type": "integer", "minimum": 0, "maximum": 16777215}
+      ]
+    },
+    
+    "position": {
+      "type": "object",
+      "properties": {
+        "x": {"type": "integer", "minimum": 0, "description": "X coordinate in pixels"},
+        "y": {"type": "integer", "minimum": 0, "description": "Y coordinate in pixels"},
+        "width": {"type": "integer", "minimum": 1, "description": "Width in pixels"},
+        "height": {"type": "integer", "minimum": 1, "description": "Height in pixels"}
+      },
+      "required": ["x", "y", "width", "height"]
+    },
+    
+    "style": {
+      "type": "object",
+      "properties": {
+        "bg_color": {"$ref": "#/definitions/color", "description": "Background color"},
+        "fg_color": {"$ref": "#/definitions/color", "description": "Foreground/text color"},
+        "border_color": {"$ref": "#/definitions/color", "description": "Border color"},
+        "border_width": {"type": "integer", "minimum": 0, "maximum": 10, "default": 1},
+        "border_radius": {"type": "integer", "minimum": 0, "maximum": 100, "default": 0},
+        "font_size": {"type": "integer", "minimum": 6, "maximum": 32, "default": 12},
+        "font": {"type": "string", "enum": ["default", "small", "medium", "large", "monospace"], "default": "default"},
+        "text_align": {"type": "string", "enum": ["left", "center", "right"], "default": "left"},
+        "padding": {"type": "integer", "minimum": 0, "maximum": 50, "default": 0},
+        "margin": {"type": "integer", "minimum": 0, "maximum": 50, "default": 0}
+      }
+    },
+    
+    "scrollable": {
+      "type": "object",
+      "properties": {
+        "x": {"type": "boolean", "default": false, "description": "Enable horizontal scrolling"},
+        "y": {"type": "boolean", "default": false, "description": "Enable vertical scrolling"}
+      }
+    },
+    
+    "widget_base": {
+      "type": "object",
+      "properties": {
+        "id": {"type": "string", "minLength": 1, "description": "Unique widget identifier"},
+        "type": {"type": "string", "description": "Widget type"},
+        "visible": {"type": "boolean", "default": true},
+        "enabled": {"type": "boolean", "default": true},
+        "tooltip": {"type": "string", "description": "Tooltip text"},
+        "z_index": {"type": "integer", "description": "Z-order (higher = on top)"}
+      },
+      "required": ["id", "type"]
+    },
+    
+    "widget_common": {
+      "allOf": [
+        {"$ref": "#/definitions/widget_base"},
+        {"$ref": "#/definitions/position"},
+        {
+          "type": "object",
+          "properties": {
+            "style": {"$ref": "#/definitions/style"},
+            "scrollable": {"$ref": "#/definitions/scrollable"}
+          }
+        }
+      ]
+    },
+    
+    "button_widget": {
+      "allOf": [
+        {"$ref": "#/definitions/widget_common"},
+        {
+          "type": "object",
+          "properties": {
+            "type": {"const": "button"},
+            "text": {"type": "string", "default": "Button"},
+            "on_click": {"type": "string", "description": "Callback function name"},
+            "pressed": {"type": "boolean", "default": false, "description": "Initial pressed state"},
+            "toggle": {"type": "boolean", "default": false, "description": "Toggle button mode"}
+          },
+          "required": ["text"]
+        }
+      ]
+    },
+    
+    "label_widget": {
+      "allOf": [
+        {"$ref": "#/definitions/widget_common"},
+        {
+          "type": "object",
+          "properties": {
+            "type": {"const": "label"},
+            "text": {"type": "string", "default": "Label"}
+          },
+          "required": ["text"]
+        }
+      ]
+    },
+    
+    "text_input_widget": {
+      "allOf": [
+        {"$ref": "#/definitions/widget_common"},
+        {
+          "type": "object",
+          "properties": {
+            "type": {"const": "text_input"},
+            "text": {"type": "string", "default": ""},
+            "placeholder": {"type": "string", "default": ""},
+            "max_length": {"type": "integer", "minimum": 1, "maximum": 4096, "default": 256},
+            "password": {"type": "boolean", "default": false},
+            "on_change": {"type": "string", "description": "Callback on text change"},
+            "on_enter": {"type": "string", "description": "Callback on enter/return"}
+          }
+        }
+      ]
+    },
+    
+    "text_editor_widget": {
+      "allOf": [
+        {"$ref": "#/definitions/widget_common"},
+        {
+          "type": "object",
+          "properties": {
+            "type": {"const": "text_editor"},
+            "text": {"type": "string", "default": ""},
+            "read_only": {"type": "boolean", "default": false},
+            "show_line_numbers": {"type": "boolean", "default": false},
+            "word_wrap": {"type": "boolean", "default": true},
+            "on_change": {"type": "string"}
+          }
+        }
+      ]
+    },
+    
+    "slider_widget": {
+      "allOf": [
+        {"$ref": "#/definitions/widget_common"},
+        {
+          "type": "object",
+          "properties": {
+            "type": {"const": "slider"},
+            "min_value": {"type": "integer", "default": 0},
+            "max_value": {"type": "integer", "default": 100},
+            "value": {"type": "integer", "default": 50},
+            "vertical": {"type": "boolean", "default": false},
+            "on_change": {"type": "string"}
+          },
+          "required": ["min_value", "max_value", "value"]
+        }
+      ]
+    },
+    
+    "progress_bar_widget": {
+      "allOf": [
+        {"$ref": "#/definitions/widget_common"},
+        {
+          "type": "object",
+          "properties": {
+            "type": {"const": "progress_bar"},
+            "value": {"type": "integer", "default": 0, "minimum": 0},
+            "max": {"type": "integer", "default": 100, "minimum": 1},
+            "direction": {"type": "string", "enum": ["horizontal", "vertical"], "default": "horizontal"},
+            "show_text": {"type": "boolean", "default": false}
+          },
+          "required": ["value", "max"]
+        }
+      ]
+    },
+    
+    "image_widget": {
+      "allOf": [
+        {"$ref": "#/definitions/widget_common"},
+        {
+          "type": "object",
+          "properties": {
+            "type": {"const": "image"},
+            "src": {"type": "string", "description": "Image file path (SD card)"},
+            "scale": {"type": "string", "enum": ["stretch", "fit", "center", "tile"], "default": "stretch"}
+          },
+          "required": ["src"]
+        }
+      ]
+    },
+    
+    "canvas_widget": {
+      "allOf": [
+        {"$ref": "#/definitions/widget_common"},
+        {
+          "type": "object",
+          "properties": {
+            "type": {"const": "canvas"},
+            "on_draw": {"type": "string", "description": "Callback function for drawing"}
+          }
+        }
+      ]
+    },
+    
+    "view_widget": {
+      "allOf": [
+        {"$ref": "#/definitions/widget_common"},
+        {
+          "type": "object",
+          "properties": {
+            "type": {"const": "view"},
+            "children": {
+              "type": "array",
+              "items": {"$ref": "#/definitions/widget"},
+              "default": []
+            }
+          }
+        }
+      ]
+    },
+    
+    "checkbox_widget": {
+      "allOf": [
+        {"$ref": "#/definitions/widget_common"},
+        {
+          "type": "object",
+          "properties": {
+            "type": {"const": "checkbox"},
+            "text": {"type": "string", "default": ""},
+            "checked": {"type": "boolean", "default": false},
+            "on_change": {"type": "string"}
+          }
+        }
+      ]
+    },
+    
+    "radio_button_widget": {
+      "allOf": [
+        {"$ref": "#/definitions/widget_common"},
+        {
+          "type": "object",
+          "properties": {
+            "type": {"const": "radio_button"},
+            "text": {"type": "string", "default": ""},
+            "group": {"type": "string", "description": "Radio group name"},
+            "checked": {"type": "boolean", "default": false},
+            "on_change": {"type": "string"}
+          },
+          "required": ["group"]
+        }
+      ]
+    },
+    
+    "dropdown_widget": {
+      "allOf": [
+        {"$ref": "#/definitions/widget_common"},
+        {
+          "type": "object",
+          "properties": {
+            "type": {"const": "dropdown"},
+            "items": {
+              "type": "array",
+              "items": {"type": "string"},
+              "default": []
+            },
+            "selected_index": {"type": "integer", "default": 0, "minimum": 0},
+            "on_change": {"type": "string"}
+          },
+          "required": ["items"]
+        }
+      ]
+    },
+    
+    "widget": {
+      "description": "Any GUIKit widget",
+      "oneOf": [
+        {"$ref": "#/definitions/view_widget"},
+        {"$ref": "#/definitions/button_widget"},
+        {"$ref": "#/definitions/label_widget"},
+        {"$ref": "#/definitions/text_input_widget"},
+        {"$ref": "#/definitions/text_editor_widget"},
+        {"$ref": "#/definitions/slider_widget"},
+        {"$ref": "#/definitions/progress_bar_widget"},
+        {"$ref": "#/definitions/image_widget"},
+        {"$ref": "#/definitions/canvas_widget"},
+        {"$ref": "#/definitions/checkbox_widget"},
+        {"$ref": "#/definitions/radio_button_widget"},
+        {"$ref": "#/definitions/dropdown_widget"}
+      ]
+    }
+  },
+  
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "GUI definition version",
+      "default": "1.0"
+    },
+    "name": {
+      "type": "string",
+      "description": "GUI name",
+      "default": "Untitled GUI"
+    },
+    "description": {
+      "type": "string",
+      "description": "GUI description"
+    },
+    "size": {
+      "type": "object",
+      "properties": {
+        "width": {"type": "integer", "minimum": 1, "maximum": 10000, "default": 320},
+        "height": {"type": "integer", "minimum": 1, "maximum": 10000, "default": 240}
+      },
+      "required": ["width", "height"],
+      "default": {"width": 320, "height": 240}
+    },
+    "background": {
+      "oneOf": [
+        {"$ref": "#/definitions/color"},
+        {"type": "string", "enum": ["transparent"]}
+      ],
+      "default": "#000000"
+    },
+    "orientation": {
+      "type": "string",
+      "enum": ["portrait", "landscape"],
+      "default": "portrait"
+    },
+    "widgets": {
+      "type": "array",
+      "items": {"$ref": "#/definitions/widget"},
+      "default": []
+    },
+    "styles": {
+      "type": "object",
+      "description": "Global style definitions",
+      "additionalProperties": {"$ref": "#/definitions/style"}
+    },
+    "scripts": {
+      "type": "object",
+      "description": "Embedded Lua/JavaScript scripts",
+      "additionalProperties": {"type": "string"}
+    },
+    "includes": {
+      "type": "array",
+      "description": "Included GUI files",
+      "items": {"type": "string"}
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Custom metadata",
+      "additionalProperties": true
+    }
+  },
+  "required": ["version", "size", "widgets"],
+  
+  "examples": [
+    {
+      "name": "Simple GUI",
+      "value": {
+        "version": "1.0",
+        "name": "Simple GUI",
+        "size": {"width": 320, "height": 240},
+        "background": "#000000",
+        "widgets": [
+          {
+            "id": "title",
+            "type": "label",
+            "text": "Hello World",
+            "x": 10, "y": 10, "width": 300, "height": 30,
+            "style": {"fg_color": "#FFFFFF", "font_size": 20, "text_align": "center"}
+          },
+          {
+            "id": "start_btn",
+            "type": "button",
+            "text": "Start",
+            "x": 100, "y": 60, "width": 120, "height": 40,
+            "style": {"bg_color": "#008000", "fg_color": "#FFFFFF"},
+            "on_click": "handle_start"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Data Entry Form",
+      "value": {
+        "version": "1.0",
+        "name": "Data Entry",
+        "size": {"width": 320, "height": 240},
+        "background": "#1A1A2E",
+        "widgets": [
+          {
+            "id": "form_view",
+            "type": "view",
+            "x": 0, "y": 0, "width": 320, "height": 240,
+            "scrollable": {"y": true},
+            "children": [
+              {
+                "id": "name_label",
+                "type": "label",
+                "text": "Name:",
+                "x": 10, "y": 10, "width": 80, "height": 20,
+                "style": {"fg_color": "#FFFFFF"}
+              },
+              {
+                "id": "name_input",
+                "type": "text_input",
+                "text": "",
+                "x": 100, "y": 10, "width": 200, "height": 24,
+                "max_length": 50,
+                "placeholder": "Enter name"
+              },
+              {
+                "id": "age_label",
+                "type": "label",
+                "text": "Age:",
+                "x": 10, "y": 40, "width": 80, "height": 20,
+                "style": {"fg_color": "#FFFFFF"}
+              },
+              {
+                "id": "age_slider",
+                "type": "slider",
+                "x": 100, "y": 40, "width": 200, "height": 20,
+                "min_value": 0, "max_value": 100, "value": 25
+              },
+              {
+                "id": "submit",
+                "type": "button",
+                "text": "Submit",
+                "x": 100, "y": 80, "width": 120, "height": 40,
+                "style": {"bg_color": "#0080FF", "fg_color": "#FFFFFF"}
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "Code Editor",
+      "value": {
+        "version": "1.0",
+        "name": "Code Editor",
+        "size": {"width": 320, "height": 240},
+        "background": "#1E1E1E",
+        "widgets": [
+          {
+            "id": "editor",
+            "type": "text_editor",
+            "text": "// Enter code here\nint main() {\n    return 0;\n}",
+            "x": 0, "y": 0, "width": 320, "height": 200,
+            "style": {"bg_color": "#1E1E1E", "fg_color": "#D4D4D4"},
+            "show_line_numbers": true,
+            "word_wrap": false,
+            "scrollable": {"x": true, "y": true}
+          },
+          {
+            "id": "status",
+            "type": "label",
+            "text": "Ready",
+            "x": 10, "y": 205, "width": 300, "height": 20,
+            "style": {"fg_color": "#808080"}
+          }
+        ]
+      }
+    }
+  ]
+}
