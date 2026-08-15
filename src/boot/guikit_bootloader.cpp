@@ -14,6 +14,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdarg.h>
 #include "guikit_hw_config.h"
 #include "gui_memory_strategy.h"
 
@@ -1158,6 +1159,43 @@ static void bootloader_init(BootloaderState* state, const guikit_hw_config_t* pl
 }
 
 /**
+ * @brief Log boot message to serial and optionally TFT
+ * 
+ * Before TFT is initialized, logs only to serial
+ * After TFT is initialized, logs to both serial and TFT
+ * 
+ * @param state Bootloader state
+ * @param format printf-style format string
+ * @param ... Arguments for format string
+ */
+static void boot_log(BootloaderState* state, const char* format, ...) {
+    // Log to serial
+    va_list args;
+    va_start(args, format);
+    vprintf(format, args);
+    va_end(args);
+    
+    // If TFT is initialized, also log to TFT
+    if (state->tft_instance != nullptr && state->hardware.tft_detected) {
+        char buffer[128];
+        va_start(args, format);
+        vsnprintf(buffer, sizeof(buffer), format, args);
+        va_end(args);
+        
+        static int tft_y_pos = 30;  // Start below header
+        tft_draw_text(state->tft_instance, 10, tft_y_pos, buffer, BOOTLOADER_TEXT_COLOR, BOOTLOADER_BG_COLOR);
+        tft_y_pos += 15;
+        
+        // Scroll if needed
+        if (tft_y_pos > BOOTLOADER_TFT_HEIGHT - 20) {
+            tft_clear(state->tft_instance, BOOTLOADER_BG_COLOR);
+            tft_draw_text(state->tft_instance, 10, 10, "GUIKit Bootloader", BOOTLOADER_SUCCESS_COLOR, BOOTLOADER_BG_COLOR);
+            tft_y_pos = 30;
+        }
+    }
+}
+
+/**
  * Run the complete bootloader sequence
  */
 bool guikit_bootloader_run(BootloaderState* state) {
@@ -1170,10 +1208,13 @@ bool guikit_bootloader_run(BootloaderState* state) {
     // Initialize hardware detection info
     memset(&state->hardware, 0, sizeof(BootHardwareInfo));
     
+    // Track if TFT is available for logging
+    bool tft_ready = false;
+    
     // ---------------------------------------------------------------------------
     // Step 0: MCU Platform Detection and Validation
     // ---------------------------------------------------------------------------
-    printf("[BOOT] Step 0/8: MCU Platform Detection\n");
+    printf("Loading ... [Step 0/8] MCU Platform Detection\n");
     state->current_state = BOOT_STATE_INIT;
     
     // Detect platform at compile time
@@ -1225,12 +1266,12 @@ bool guikit_bootloader_run(BootloaderState* state) {
     // ---------------------------------------------------------------------------
     // Step 1: SMP (Symmetric Multi-Processing) Detection
     // ---------------------------------------------------------------------------
-    printf("[BOOT] Step 1/8: SMP Detection\n");
+    printf("Loading ... [Step 1/8] SMP Detection\n");
     state->current_state = BOOT_STATE_HARDWARE_DETECTION;
     
     detect_smp_capability(state);
     
-    printf("[BOOT] SMP Detection complete: %d cores available, running on core %d\n",
+    printf("Loading ... [Step 1/8] SMP Detection complete: %d cores, running on core %d\n",
            state->config.cpu_core_count,
            state->config.current_cpu_core);
     printf("  SMP Available: %s\n", state->config.smp_available ? "Yes" : "No");
@@ -1239,7 +1280,7 @@ bool guikit_bootloader_run(BootloaderState* state) {
     // ---------------------------------------------------------------------------
     // Step 2: Hardware Detection
     // ---------------------------------------------------------------------------
-    printf("[BOOT] Step 2/8: Hardware Detection\n");
+    printf("Loading ... [Step 2/8] Hardware Detection\n");
     state->current_state = BOOT_STATE_HARDWARE_DETECTION;
     
     // Set platform info
@@ -1250,11 +1291,11 @@ bool guikit_bootloader_run(BootloaderState* state) {
     detect_spi_devices(state);
     
     if (state->current_state == BOOT_STATE_ERROR) {
-        printf("[BOOT] ERROR: %s\n", state->error_message);
+        printf("ERROR: %s\n", state->error_message);
         return false;
     }
     
-    printf("[BOOT] Hardware detection complete\n");
+    printf("Loading ... [Step 2/8] Hardware detection complete\n");
     printf("  SRAM: %s, PSRAM: %s, SD Card: %s, TFT: %s, Touch: %s\n",
            state->hardware.sram_detected ? "Yes" : "No",
            state->hardware.psram_detected ? "Yes" : "No",
@@ -1269,7 +1310,7 @@ bool guikit_bootloader_run(BootloaderState* state) {
     // ---------------------------------------------------------------------------
     // Step 2: RAM Initialization
     // ---------------------------------------------------------------------------
-    printf("[BOOT] Step 3/8: RAM Initialization\n");
+    printf("Loading ... [Step 3/8] RAM Initialization\n");
     state->current_state = BOOT_STATE_RAM_INITIALIZATION;
     
     if (!init_ram(state)) {
@@ -1279,7 +1320,7 @@ bool guikit_bootloader_run(BootloaderState* state) {
         return false;
     }
     
-    printf("[BOOT] RAM initialization complete\n");
+    printf("Loading ... [Step 3/8] RAM initialization complete\n");
     printf("  Available RAM: %lu KB (Internal: ~%lu KB, External: %lu KB)\n",
            state->available_ram / 1024,
            (state->available_ram - state->available_external_ram) / 1024,
@@ -1289,28 +1330,35 @@ bool guikit_bootloader_run(BootloaderState* state) {
     // ---------------------------------------------------------------------------
     // Step 3: SD Card Detection
     // ---------------------------------------------------------------------------
-    printf("[BOOT] Step 4/8: SD Card Initialization\n");
+    printf("Loading ... [Step 4/8] SD Card Initialization\n");
     state->current_state = BOOT_STATE_SDCARD_DETECTION;
     
     if (state->hardware.sdcard_detected) {
         init_sd_card(state);
     }
     
-    printf("[BOOT] SD Card initialization complete\n");
+    printf("Loading ... [Step 4/8] SD Card initialization complete\n");
     printf("  SD Card: %s\n", state->hardware.sdcard_detected ? "Ready" : "Not available");
     printf("\n");
     
     // ---------------------------------------------------------------------------
     // Step 4: TFT Initialization (moved here to show boot messages early)
     // ---------------------------------------------------------------------------
-    printf("[BOOT] Step 5/8: TFT Initialization\n");
+    printf("Loading ... [Step 4/8] TFT Initialization\n");
     state->current_state = BOOT_STATE_TFT_INITIALIZATION;
     
     if (state->hardware.tft_detected) {
         init_tft(state);
+        
+        // TFT is now ready - log confirmation
+        printf("TFT initialized ... logging step on it ...\n");
+        
+        // Clear TFT and show header
+        tft_clear(state->tft_instance, BOOTLOADER_BG_COLOR);
+        tft_draw_text(state->tft_instance, 10, 10, "GUIKit Bootloader", BOOTLOADER_SUCCESS_COLOR, BOOTLOADER_BG_COLOR);
     }
     
-    printf("[BOOT] TFT initialization complete\n");
+    printf("Loading ... [Step 4/8] TFT initialization complete\n");
     printf("  TFT: %s\n", state->hardware.tft_detected ? "Ready" : "Not available");
     printf("\n");
     
@@ -1318,11 +1366,10 @@ bool guikit_bootloader_run(BootloaderState* state) {
     // Step 5: Kernel Check (if SD Card is available)
     // ---------------------------------------------------------------------------
     if (state->hardware.sdcard_detected) {
-        printf("[BOOT] Step 6/8: Kernel Check\n");
+        boot_log(state, "Loading ... [Step 5/8] Kernel Check\n");
         state->current_state = BOOT_STATE_KERNEL_CHECK;
         
-        // Display progress on TFT
-        tft_display_progress(state, "Checking kernel...");
+        // boot_log will automatically display on TFT if initialized
         
         // Try all kernel paths until one is found
         bool kernel_found = false;
@@ -1341,25 +1388,25 @@ bool guikit_bootloader_run(BootloaderState* state) {
         if (!kernel_found) {
             state->current_state = BOOT_STATE_ERROR;
             state->error_message = "No valid kernel found on SD card";
-            printf("[BOOT] ERROR: No valid kernel found on SD card\n");
+            boot_log(state, "ERROR: No valid kernel found on SD card\n");
             return false;
         }
         
-        printf("[BOOT] Kernel check complete\n");
-        printf("  Kernel: %lu KB at %s\n", 
+        boot_log(state, "Loading ... [Step 5/8] Kernel check complete\n");
+        boot_log(state, "  Kernel: %lu KB at %s\n", 
                state->kernel.size / 1024, state->kernel.path);
-        printf("  Fits in RAM: %s\n", state->kernel.fits_in_ram ? "Yes" : "No");
-        printf("  Load Strategy: %s\n",
+        boot_log(state, "  Fits in RAM: %s\n", state->kernel.fits_in_ram ? "Yes" : "No");
+        boot_log(state, "  Load Strategy: %s\n",
                state->kernel.strategy == MEMORY_STRATEGY_EXTERNAL_RAM ? "External RAM" :
                state->kernel.strategy == MEMORY_STRATEGY_SD_SWAP ? "SD Card Swap" :
                state->kernel.strategy == MEMORY_STRATEGY_INTERNAL_RAM ? "Internal RAM" : "FAILED");
-        printf("\n");
+        boot_log(state, "\n");
         
         // If kernel doesn't fit in RAM, fail
         if (!state->kernel.fits_in_ram) {
             state->current_state = BOOT_STATE_ERROR;
             state->error_message = "Kernel too large for available RAM";
-            printf("[BOOT] ERROR: %s\n", state->error_message);
+            boot_log(state, "ERROR: %s\n", state->error_message);
             return false;
         }
         
@@ -1367,7 +1414,7 @@ bool guikit_bootloader_run(BootloaderState* state) {
         if (state->kernel.strategy == MEMORY_STRATEGY_FAILED) {
             state->current_state = BOOT_STATE_ERROR;
             state->error_message = "No valid memory strategy for kernel";
-            printf("[BOOT] ERROR: %s\n", state->error_message);
+            boot_log(state, "ERROR: %s\n", state->error_message);
             return false;
         }
     } else {
@@ -1376,44 +1423,38 @@ bool guikit_bootloader_run(BootloaderState* state) {
         state->kernel.size = 0;
         state->kernel.fits_in_ram = false;
         state->kernel.strategy = MEMORY_STRATEGY_FAILED;
-        printf("[BOOT] No SD Card - skipping kernel check (kernel must be in Flash)\n\n");
+        boot_log(state, "No SD Card - skipping kernel check (kernel must be in Flash)\n\n");
     }
     
     // ---------------------------------------------------------------------------
     // Step 6: Memory Strategy Configuration
     // ---------------------------------------------------------------------------
-    printf("[BOOT] Step 7/8: Memory Strategy Configuration\n";
+    boot_log(state, "Loading ... [Step 6/8] Memory Strategy Configuration\n");
     state->current_state = BOOT_STATE_MEMORY_STRATEGY_CONFIG;
     
     // Configure memory strategy based on detected hardware
     configure_memory_strategy(state);
     
-    // Display progress on TFT
-    tft_display_progress(state, "Memory configured");
-    
     // Update the main config with the memory strategy
     state->config.memory_strategy = state->memory_config;
     
-    printf("[BOOT] Memory strategy configured\n");
-    printf("  Strategy thresholds:\n");
-    printf("    External RAM min: %lu KB\n", state->memory_config.external_ram_min_size / 1024);
-    printf("    SD Swap min: %lu KB\n", state->memory_config.sd_swap_min_size / 1024);
-    printf("    Internal RAM max: %lu KB\n", state->memory_config.internal_ram_max_size / 1024);
-    printf("  Flags:\n");
-    printf("    Use External RAM: %s\n", state->memory_config.use_external_ram_by_default ? "Yes" : "No");
-    printf("    Use SD Swap: %s\n", state->memory_config.use_sd_swap_by_default ? "Yes" : "No");
-    printf("    Check Memory: %s\n", state->memory_config.check_memory_before_load ? "Yes" : "No");
-    printf("    Display Errors: %s\n", state->memory_config.display_error_on_tft ? "Yes" : "No");
-    printf("\n");
+    boot_log(state, "Loading ... [Step 6/8] Memory strategy configured\n");
+    boot_log(state, "  Strategy thresholds:\n");
+    boot_log(state, "    External RAM min: %lu KB\n", state->memory_config.external_ram_min_size / 1024);
+    boot_log(state, "    SD Swap min: %lu KB\n", state->memory_config.sd_swap_min_size / 1024);
+    boot_log(state, "    Internal RAM max: %lu KB\n", state->memory_config.internal_ram_max_size / 1024);
+    boot_log(state, "  Flags:\n");
+    boot_log(state, "    Use External RAM: %s\n", state->memory_config.use_external_ram_by_default ? "Yes" : "No");
+    boot_log(state, "    Use SD Swap: %s\n", state->memory_config.use_sd_swap_by_default ? "Yes" : "No");
+    boot_log(state, "    Check Memory: %s\n", state->memory_config.check_memory_before_load ? "Yes" : "No");
+    boot_log(state, "    Display Errors: %s\n", state->memory_config.display_error_on_tft ? "Yes" : "No");
+    boot_log(state, "\n");
     
     // ---------------------------------------------------------------------------
     // Step 7: Memory Strategy Test and Apply
     // ---------------------------------------------------------------------------
-    printf("[BOOT] Step 8/8: Memory Strategy Test and Apply\n");
+    boot_log(state, "Loading ... [Step 7/8] Memory Strategy Test and Apply\n");
     state->current_state = BOOT_STATE_MEMORY_STRATEGY_APPLY;
-    
-    // Display progress on TFT
-    tft_display_progress(state, "Testing strategy...");
     
     // Test memory strategy with different GUI sizes
     test_memory_strategy(state);
@@ -1426,18 +1467,18 @@ bool guikit_bootloader_run(BootloaderState* state) {
         &state->memory_config
     );
     
-    printf("[BOOT] Memory strategy initialized\n");
+    boot_log(state, "Loading ... [Step 7/8] Memory strategy initialized\n");
     
     // Get current strategy info
     uint32_t total_ram, used_ram, free_ram;
     MemoryStrategyLevel current_strategy;
     gui_memory_strategy_get_stats(&total_ram, &used_ram, &free_ram, &current_strategy);
     
-    printf("  Current Strategy: %s\n", 
+    boot_log(state, "  Current Strategy: %s\n", 
            current_strategy == MEMORY_STRATEGY_EXTERNAL_RAM ? "External RAM" :
            current_strategy == MEMORY_STRATEGY_SD_SWAP ? "SD Swap" :
            current_strategy == MEMORY_STRATEGY_INTERNAL_RAM ? "Internal RAM" : "None");
-    printf("\n");
+    boot_log(state, "\n");
     
     // ---------------------------------------------------------------------------
     // Display Results on TFT
@@ -1516,59 +1557,59 @@ bool guikit_bootloader_run(BootloaderState* state) {
     state->current_state = BOOT_STATE_COMPLETE;
     state->boot_end_time = 0;  // Would use millis() or similar
     
-    printf("========================================\n");
-    printf("GUIKit Bootloader Complete\n");
-    printf("========================================\n");
-    printf("\n");
-    printf("Boot Summary:\n");
-    printf("  Platform: %s\n", 
+    boot_log(state, "========================================\n");
+    boot_log(state, "GUIKit Bootloader Complete\n");
+    boot_log(state, "========================================\n");
+    boot_log(state, "\n");
+    boot_log(state, "Boot Summary:\n");
+    boot_log(state, "  Platform: %s\n", 
            state->config.is_esp8266 ? "ESP8266" : (state->config.is_esp32 ? "ESP32" : "Unknown"));
-    printf("  SMP: %s (%d cores, running on core %d)\n",
+    boot_log(state, "  SMP: %s (%d cores, running on core %d)\n",
            state->config.smp_available ? "Yes" : "No",
            state->config.cpu_core_count,
            state->config.current_cpu_core);
-    printf("  RAM: %lu KB total (%lu KB internal, %lu KB external)\n",
+    boot_log(state, "  RAM: %lu KB total (%lu KB internal, %lu KB external)\n",
            state->available_ram / 1024,
            (state->available_ram - state->available_external_ram) / 1024,
            state->available_external_ram / 1024);
-    printf("  SD Card: %s\n", state->hardware.sdcard_detected ? "Available" : "Not available");
-    printf("  TFT: %s (%dx%d)\n", 
+    boot_log(state, "  SD Card: %s\n", state->hardware.sdcard_detected ? "Available" : "Not available");
+    boot_log(state, "  TFT: %s (%dx%d)\n", 
            state->hardware.tft_detected ? "Available" : "Not available",
            state->hardware.tft_width, state->hardware.tft_height);
-    printf("  Touch: %s\n", state->hardware.touch_detected ? "Available" : "Not available");
-    printf("  SPI Expanders: %d (%d GPIO)\n",
+    boot_log(state, "  Touch: %s\n", state->hardware.touch_detected ? "Available" : "Not available");
+    boot_log(state, "  SPI Expanders: %d (%d GPIO)\n",
            state->hardware.spi_expander_count, state->hardware.total_expander_gpio);
     
     // Kernel information
     if (state->kernel.found) {
-        printf("\n");
-        printf("Kernel:\n");
-        printf("  Found: Yes\n");
-        printf("  Path: %s\n", state->kernel.path);
-        printf("  Size: %lu KB\n", state->kernel.size / 1024);
-        printf("  Version: %s\n", state->kernel.version ? state->kernel.version : "Unknown");
-        printf("  Fits in RAM: %s\n", state->kernel.fits_in_ram ? "Yes" : "No");
-        printf("  Load Strategy: %s\n",
+        boot_log(state, "\n");
+        boot_log(state, "Kernel:\n");
+        boot_log(state, "  Found: Yes\n");
+        boot_log(state, "  Path: %s\n", state->kernel.path);
+        boot_log(state, "  Size: %lu KB\n", state->kernel.size / 1024);
+        boot_log(state, "  Version: %s\n", state->kernel.version ? state->kernel.version : "Unknown");
+        boot_log(state, "  Fits in RAM: %s\n", state->kernel.fits_in_ram ? "Yes" : "No");
+        boot_log(state, "  Load Strategy: %s\n",
                state->kernel.strategy == MEMORY_STRATEGY_EXTERNAL_RAM ? "External RAM" :
                state->kernel.strategy == MEMORY_STRATEGY_SD_SWAP ? "SD Card Swap" :
                state->kernel.strategy == MEMORY_STRATEGY_INTERNAL_RAM ? "Internal RAM" : "FAILED");
     } else {
-        printf("\n");
-        printf("Kernel:\n");
-        printf("  Found: No (must be in Flash)\n");
+        boot_log(state, "\n");
+        boot_log(state, "Kernel:\n");
+        boot_log(state, "  Found: No (must be in Flash)\n");
     }
     
-    printf("\n");
-    printf("Memory Strategy:\n");
-    printf("  Selected: %s\n",
+    boot_log(state, "\n");
+    boot_log(state, "Memory Strategy:\n");
+    boot_log(state, "  Selected: %s\n",
            state->selected_strategy == MEMORY_STRATEGY_EXTERNAL_RAM ? "External RAM" :
            state->selected_strategy == MEMORY_STRATEGY_SD_SWAP ? "SD Swap" :
            state->selected_strategy == MEMORY_STRATEGY_INTERNAL_RAM ? "Internal RAM" : "Failed");
-    printf("  Thresholds:\n");
-    printf("    External RAM: > %lu KB\n", state->memory_config.external_ram_min_size / 1024);
-    printf("    SD Swap: > %lu KB\n", state->memory_config.sd_swap_min_size / 1024);
-    printf("    Internal RAM: < %lu KB\n", state->memory_config.internal_ram_max_size / 1024);
-    printf("\n");
+    boot_log(state, "  Thresholds:\n");
+    boot_log(state, "    External RAM: > %lu KB\n", state->memory_config.external_ram_min_size / 1024);
+    boot_log(state, "    SD Swap: > %lu KB\n", state->memory_config.sd_swap_min_size / 1024);
+    boot_log(state, "    Internal RAM: < %lu KB\n", state->memory_config.internal_ram_max_size / 1024);
+    boot_log(state, "\n");
     
     return true;
 }
