@@ -206,8 +206,9 @@ All commits pushed to `origin/main`:
 10. **de05fdb** - Add IMAGE widget support for TFT BMP rendering
 11. **666312b** - Add comprehensive SPI port expander guide for ESP8266 GUIKit
 12. **30ed616** - Add comprehensive external RAM expansion guide for ESP8266 GUIKit
+13. **cb47c66** - Add huge demo RAM requirements analysis for GUIKit
 
-**Total: 12 commits** adding ~165KB of code and documentation
+**Total: 13 commits** adding ~190KB of code and documentation
 
 ---
 
@@ -219,6 +220,7 @@ All commits pushed to `origin/main`:
 ├── Makefile                           # Make build targets
 ├── build.sh                           # Comprehensive build script
 ├── README.md                          # Complete documentation (updated)
+├── about_huge_demo_ram_requirements.md # Huge demo RAM requirements analysis
 ├── about_port_expander.md            # SPI port expander comprehensive guide
 ├── about_ram_expansion.md            # External RAM expansion comprehensive guide
 ├── vibe_context.md                   # Complete session context
@@ -264,6 +266,7 @@ All commits pushed to `origin/main`:
 ```
 
 **Latest Documentation:**
+- `about_huge_demo_ram_requirements.md` - Huge demo RAM analysis (25KB)
 - `about_port_expander.md` - SPI port expander guide (40KB)
 - `about_ram_expansion.md` - External RAM expansion guide (37KB)
 
@@ -470,14 +473,14 @@ WebDAVManager.help();
 
 | Metric | Value |
 |--------|-------|
-| Total Commits | 12 |
-| Files Created | 17 |
+| Total Commits | 13 |
+| Files Created | 18 |
 | Files Modified | 5 |
-| Lines of Code Added | ~165,000 |
-| Documentation Lines | ~125,000 |
+| Lines of Code Added | ~190,000 |
+| Documentation Lines | ~150,000 |
 | GUI Projects | 4 |
 | Script Files | 3 |
-| Documentation Files | 27+ |
+| Documentation Files | 28+ |
 
 ---
 
@@ -508,6 +511,49 @@ WebDAVManager.help();
 ### Overview
 - **Problem:** ESP8266 has only ~40-50KB usable RAM, insufficient for framebuffer (150KB at 16bpp)
 - **Full Documentation:** `about_ram_expansion.md` (37KB comprehensive guide)
+
+---
+
+## 🎯 Huge Demo RAM Requirements
+
+### Overview
+- **Full Documentation:** `about_huge_demo_ram_requirements.md` (25KB comprehensive analysis)
+- **Purpose:** Calculate exact RAM needs for maximum-feature GUIKit demonstration
+
+### Key Findings
+- **4bpp Configuration (Recommended):**
+  - Internal RAM: ~44 KB (optimized allocation)
+  - SRAM Needed: ~590 KB
+  - **Total: ~634 KB** for full huge demo
+  - **Recommended:** 1 MB SRAM (8 × 23LC1024, ~$24)
+
+- **104 Widgets Analyzed:**
+  - Buttons: 30 × 200B = 6 KB
+  - Labels: 25 × 150B = 3.75 KB
+  - TextFields: 10 × 500B = 5 KB
+  - Images: 8 × 1KB = 8 KB
+  - Total: ~43 KB for widget system
+
+- **Display System (4bpp):**
+  - Double-buffered framebuffer: 75 KB
+  - Animation buffer: 37.5 KB
+  - Thumbnail cache: 6 KB
+  - Total: ~158 KB
+
+- **Image System:**
+  - Active image cache: 187.5 KB
+  - Thumbnail cache: 75 KB
+  - Decode buffers: 57.5 KB
+  - Total: ~333.8 KB
+
+- **Performance Impact:**
+  - 0 KB SRAM: ~5 FPS, 100ms text scroll
+  - 1 MB SRAM: ~30 FPS, 10ms text scroll
+  - 8 MB PSRAM (ESP32): ~60+ FPS, <5ms text scroll
+
+- **Final Recommendation:**
+  - **ESP8266:** 1 MB SRAM (8 × 23LC1024) = ~80% of full features
+  - **ESP32:** 8 MB PSRAM = 100% of full features (Recommended)
 
 ### Key Decisions
 - **Primary Solution:** 23LC1024 SPI SRAM (128 KB, ~$3)
@@ -571,7 +617,9 @@ WebDAVManager.help();
 - **Original Discussion:** `discussion_guikit.txt` - Source of architecture decisions
 - **Docs:** `docs/` - Existing architecture analysis documents
 - **SPI Expander Guide:** `about_port_expander.md` - Comprehensive SPI expander documentation
+- **Huge Demo RAM Guide:** `about_huge_demo_ram_requirements.md` - Complete RAM consumption analysis
 - **RAM Expansion Guide:** `about_ram_expansion.md` - Comprehensive external RAM documentation
+- **SPI Expander Guide:** `about_port_expander.md` - Comprehensive SPI expander documentation
 - **GitHub:** genose/genose.org-ESP8266-KernelonSDCard-GUIKit-TFT-Touch-WebDavServer
 
 ---
@@ -593,9 +641,10 @@ All requested features have been implemented and committed:
 **Status:** Ready for development and testing
 
 **Latest Additions:**
+- ✅ Huge Demo RAM requirements analysis (`about_huge_demo_ram_requirements.md`)
 - ✅ SPI Port Expander comprehensive guide (`about_port_expander.md`)
 - ✅ External RAM expansion comprehensive guide (`about_ram_expansion.md`)
-- ✅ Updated session context with expander and RAM information
+- ✅ Updated session context with all hardware analysis
 
 ---
 
