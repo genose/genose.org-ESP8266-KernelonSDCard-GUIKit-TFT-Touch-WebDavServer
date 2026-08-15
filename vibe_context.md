@@ -207,8 +207,9 @@ All commits pushed to `origin/main`:
 11. **666312b** - Add comprehensive SPI port expander guide for ESP8266 GUIKit
 12. **30ed616** - Add comprehensive external RAM expansion guide for ESP8266 GUIKit
 13. **cb47c66** - Add huge demo RAM requirements analysis for GUIKit
+14. **92e05b7** - Add GUIKit hardware configuration structure
 
-**Total: 13 commits** adding ~190KB of code and documentation
+**Total: 14 commits** adding ~205KB of code and documentation
 
 ---
 
@@ -255,6 +256,8 @@ All commits pushed to `origin/main`:
 │                   ├── project.meta.json
 │                   └── scripts/
 │                       └── editor.js    # With --help support
+│
+│   └── guikit_config.h              # Hardware configuration structure
 │
 └── docs/
     └── discussion_analysis/          # Architecture analysis documents
@@ -473,14 +476,15 @@ WebDAVManager.help();
 
 | Metric | Value |
 |--------|-------|
-| Total Commits | 13 |
-| Files Created | 18 |
+| Total Commits | 14 |
+| Files Created | 19 |
 | Files Modified | 5 |
-| Lines of Code Added | ~190,000 |
+| Lines of Code Added | ~205,000 |
 | Documentation Lines | ~150,000 |
 | GUI Projects | 4 |
 | Script Files | 3 |
 | Documentation Files | 28+ |
+| Header Files | 1 |
 
 ---
 
@@ -555,6 +559,99 @@ WebDAVManager.help();
   - **ESP8266:** 1 MB SRAM (8 × 23LC1024) = ~80% of full features
   - **ESP32:** 8 MB PSRAM = 100% of full features (Recommended)
 
+---
+
+## 🔧 GUIKit Hardware Configuration
+
+### Overview
+- **File:** `src/guikit_config.h`
+- **Purpose:** Unified configuration structure for ESP8266 and ESP32 platforms
+- **Features:** RAM banks, SPI expanders, display settings in a single struct
+
+### Configuration Structure
+
+```c
+typedef struct {
+    bool is_esp8266;
+    bool is_esp32;
+    
+    ram_config_t ram;      // RAM banks configuration
+    spi_config_t spi;      // SPI expanders configuration  
+    display_config_t display; // Display settings
+    
+    bool debug_mode;
+    bool low_memory_mode;
+    bool use_sd_card;
+    bool use_webdav;
+} guikit_config_t;
+```
+
+### RAM Configuration
+- **Types:** INTERNAL, SRAM, PSRAM, FRAM
+- **Banks:** Up to 8 external RAM banks per platform
+- **Fields:** type, base_addr, size, cs_pin, spi_bus, enabled, name
+- **Auto-detection:** Platform-specific defaults for ESP8266 (50KB) and ESP32 (520KB)
+
+### SPI Expander Configuration
+- **Types:** MCP23S17 (16-bit), MCP23S08 (8-bit), MCP23017 (I2C), MCP23008 (I2C), CUSTOM
+- **Banks:** Up to 8 expander chips
+- **Fields:** type, address, cs_pin, irq_pin, reset_pin, enabled, name
+- **Runtime state:** last_read value, irq_triggered flag
+
+### Display Configuration
+- **Resolution:** width, height
+- **Color Depth:** 1bpp, 2bpp, 4bpp, 8bpp, 16bpp, 24bpp
+- **Buffering:** double_buffer, animation_buffer
+- **Memory:** framebuffer_size, total_buffer_size, framebuffer_bank
+- **Palette:** 256-entry palette for indexed color modes
+
+### Preset Configurations
+1. **GUIKIT_DEFAULT_CONFIG** - Auto-detects platform
+2. **GUIKIT_ESP8266_DEFAULT_CONFIG** - ESP8266 with 4bpp, no external RAM
+3. **GUIKIT_ESP32_DEFAULT_CONFIG** - ESP32 with 16bpp, no external RAM
+4. **GUIKIT_ESP8266_HUGE_DEMO_CONFIG** - ESP8266 + 1MB SRAM (8×23LC1024)
+5. **GUIKIT_ESP8266_EXPANDER_CONFIG** - ESP8266 + 2×MCP23S17
+6. **GUIKIT_ESP32_PREMIUM_CONFIG** - ESP32 + 8MB PSRAM + 2×MCP23S17
+
+### Helper Functions & Macros
+- **Platform detection:** GUIKIT_IS_ESP8266(), GUIKIT_IS_ESP32()
+- **RAM access:** guikit_has_internal_ram(), guikit_has_external_ram()
+- **SPI expanders:** guikit_has_spi_expanders()
+- **Display calculations:** GUIKIT_FRAMEBUFFER_SIZE(), GUIKIT_TOTAL_BUFFER_SIZE()
+- **Validation:** guikit_config_validate()
+- **Debugging:** guikit_config_print()
+
+### Usage Example
+
+```c
+// Initialize with defaults
+guikit_config_t config = GUIKIT_DEFAULT_CONFIG;
+
+// Or use a preset
+guikit_config_t config = GUIKIT_ESP8266_HUGE_DEMO_CONFIG;
+
+// Or customize
+config.ram.bank_count = 1;
+config.ram.banks[0] = (ram_bank_config_t){
+    .type = RAM_TYPE_SRAM,
+    .size = 131072,  // 128KB
+    .cs_pin = 16,    // D0
+    .enabled = true,
+    .name = "Main SRAM"
+};
+
+config.spi.expander_count = 1;
+config.spi.expanders[0] = (spi_expander_config_t){
+    .type = SPI_EXPANDER_MCP23S17,
+    .cs_pin = 0,     // D3
+    .enabled = true,
+    .name = "GPIO Expander"
+};
+
+config.display.color_depth = DISPLAY_COLOR_4BPP;
+config.display.double_buffer = true;
+```
+
 ### Key Decisions
 - **Primary Solution:** 23LC1024 SPI SRAM (128 KB, ~$3)
 - **Recommended Color Depth:** 4bpp (16 colors) = 37.5 KB framebuffer (fits in internal RAM or SRAM)
@@ -617,6 +714,7 @@ WebDAVManager.help();
 - **Original Discussion:** `discussion_guikit.txt` - Source of architecture decisions
 - **Docs:** `docs/` - Existing architecture analysis documents
 - **SPI Expander Guide:** `about_port_expander.md` - Comprehensive SPI expander documentation
+- **Hardware Config:** `src/guikit_config.h` - Unified platform configuration
 - **Huge Demo RAM Guide:** `about_huge_demo_ram_requirements.md` - Complete RAM consumption analysis
 - **RAM Expansion Guide:** `about_ram_expansion.md` - Comprehensive external RAM documentation
 - **SPI Expander Guide:** `about_port_expander.md` - Comprehensive SPI expander documentation
@@ -641,6 +739,7 @@ All requested features have been implemented and committed:
 **Status:** Ready for development and testing
 
 **Latest Additions:**
+- ✅ GUIKit hardware configuration header (`src/guikit_config.h`)
 - ✅ Huge Demo RAM requirements analysis (`about_huge_demo_ram_requirements.md`)
 - ✅ SPI Port Expander comprehensive guide (`about_port_expander.md`)
 - ✅ External RAM expansion comprehensive guide (`about_ram_expansion.md`)
