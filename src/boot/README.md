@@ -33,25 +33,23 @@ Boot Start
     ↓
 3. SD Card Initialization
     ↓
-3.5. Kernel Check
+4. TFT Initialization
+    ↓
+5. Kernel Check
    ├── Check kernel file exists on SD Card
    ├── Verify kernel size is valid (> 1KB)
    ├── Check kernel fits in available RAM
    └── Determine kernel load strategy
     ↓
-4. TFT Initialization
-    ↓
-5. Memory Strategy Configuration
+6. Memory Strategy Configuration
    ├── Determine available RAM
    ├── Set thresholds based on hardware
    └── Configure strategy flags
     ↓
-6. Memory Strategy Test & Apply
+7. Memory Strategy Test & Apply + Display Results
    ├── Test with various GUI sizes
    ├── Initialize memory strategy system
-   └── Verify configuration
-    ↓
-7. Display Results (on TFT if available)
+   └── Display results on TFT (if available)
     ↓
 Boot Complete
 ```
@@ -306,7 +304,12 @@ GUIKit Bootloader Starting
 [BOOT] SD Card initialization complete
   SD Card: Ready
 
-[BOOT] Step 3.5/7: Kernel Check
+[BOOT] Step 4/7: TFT Initialization
+[TFT] TFT initialized: 320x240 at CS 15
+[BOOT] TFT initialization complete
+  TFT: Ready
+
+[BOOT] Step 5/7: Kernel Check
 [KERNEL] Checking for kernel at: /kernel.bin
 [KERNEL] Kernel found at: /kernel.bin
 [KERNEL] Kernel size: 128 KB (131072 bytes)
@@ -321,12 +324,7 @@ GUIKit Bootloader Starting
   Fits in RAM: Yes
   Load Strategy: External RAM
 
-[BOOT] Step 4/7: TFT Initialization
-[TFT] TFT initialized: 320x240 at CS 15
-[BOOT] TFT initialization complete
-  TFT: Ready
-
-[BOOT] Step 5/7: Memory Strategy Configuration
+[BOOT] Step 6/7: Memory Strategy Configuration
 [BOOT] Memory strategy configured
   Strategy thresholds:
     External RAM min: 4 KB
@@ -338,7 +336,7 @@ GUIKit Bootloader Starting
     Check Memory: Yes
     Display Errors: Yes
 
-[BOOT] Step 6/7: Memory Strategy Test and Apply
+[BOOT] Step 7/7: Memory Strategy Test and Apply
 
 [MEMORY STRATEGY] Testing with detected hardware:
   External RAM: Yes (128 KB)
@@ -410,7 +408,12 @@ GUIKit Bootloader Starting
 [BOOT] SD Card initialization complete
   SD Card: Ready
 
-[BOOT] Step 3.5/7: Kernel Check
+[BOOT] Step 4/7: TFT Initialization
+[TFT] TFT initialized: 320x240 at CS 15
+[BOOT] TFT initialization complete
+  TFT: Ready
+
+[BOOT] Step 5/7: Kernel Check
 [KERNEL] Checking for kernel at: /kernel.bin
 [KERNEL] Kernel found at: /kernel.bin
 [KERNEL] Kernel size: 64 KB (65536 bytes)
@@ -427,12 +430,7 @@ GUIKit Bootloader Starting
   Fits in RAM: Yes
   Load Strategy: Internal RAM
 
-[BOOT] Step 4/7: TFT Initialization
-[TFT] TFT initialized: 320x240 at CS 15
-[BOOT] TFT initialization complete
-  TFT: Ready
-
-[BOOT] Step 5/7: Memory Strategy Configuration
+[BOOT] Step 6/7: Memory Strategy Configuration
 [BOOT] Memory strategy configured
   Strategy thresholds:
     External RAM min: 4294967295 KB
@@ -444,7 +442,7 @@ GUIKit Bootloader Starting
     Check Memory: Yes
     Display Errors: Yes
 
-[BOOT] Step 6/7: Memory Strategy Test and Apply
+[BOOT] Step 7/7: Memory Strategy Test and Apply
 
 [MEMORY STRATEGY] Testing with detected hardware:
   External RAM: No (0 KB)
@@ -518,7 +516,12 @@ GUIKit Bootloader Starting
 [BOOT] SD Card initialization complete
   SD Card: Ready
 
-[BOOT] Step 3.5/7: Kernel Check
+[BOOT] Step 4/7: TFT Initialization
+[TFT] TFT initialized: 320x240 at CS 5
+[BOOT] TFT initialization complete
+  TFT: Ready
+
+[BOOT] Step 5/7: Kernel Check
 [KERNEL] Checking for kernel at: /kernel.bin
 [KERNEL] Kernel found at: /kernel.bin
 [KERNEL] Kernel size: 512 KB (524288 bytes)
@@ -533,12 +536,7 @@ GUIKit Bootloader Starting
   Fits in RAM: Yes
   Load Strategy: External RAM
 
-[BOOT] Step 4/7: TFT Initialization
-[TFT] TFT initialized: 320x240 at CS 5
-[BOOT] TFT initialization complete
-  TFT: Ready
-
-[BOOT] Step 5/7: Memory Strategy Configuration
+[BOOT] Step 6/7: Memory Strategy Configuration
 [BOOT] Memory strategy configured
   Strategy thresholds:
     External RAM min: 16 KB
@@ -605,6 +603,15 @@ When a TFT display is available, the bootloader shows a visual summary:
 +--------------------------------------+
 | GUIKit Bootloader                    |
 |                                      |
+| Initializing...                       |
+| TFT Ready                            |
+| Checking kernel...                    |
+| Kernel OK: 128 KB                    |
+| Configuring memory...                |
+| Memory configured                    |
+| Testing strategy...                  |
+| Strategy: External RAM               |
+|                                      |
 | Hardware Detected:                   |
 |   RAM: 80 KB Int, 128 KB Ext         |
 |   SD Card: Yes                       |
@@ -616,7 +623,6 @@ When a TFT display is available, the bootloader shows a visual summary:
 |   Strategy: External RAM             |
 |                                      |
 | Memory Strategy:                     |
-|   Strategy: External RAM             |
 |   External > 4 KB                    |
 |   SD Swap > 8 KB                     |
 |   Internal < 64 KB                   |

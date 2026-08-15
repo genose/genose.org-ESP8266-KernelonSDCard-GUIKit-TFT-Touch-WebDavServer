@@ -469,6 +469,28 @@ static bool tft_init(TFT_ST7789** tft, uint8_t cs_pin, uint16_t width, uint16_t 
 }
 
 /**
+ * Display boot progress message on TFT
+ */
+static void tft_display_progress(BootloaderState* state, const char* message) {
+    if (!state->hardware.tft_detected || !state->tft_instance) {
+        return;
+    }
+    
+    static int y_pos = 30;  // Start below the header
+    
+    // Clear the progress area (simplified - in real code would manage screen properly)
+    tft_draw_text(state->tft_instance, 10, y_pos, message, BOOTLOADER_TEXT_COLOR, BOOTLOADER_BG_COLOR);
+    y_pos += 15;
+    
+    // If we reach the bottom, scroll up (simplified)
+    if (y_pos > BOOTLOADER_TFT_HEIGHT - 20) {
+        y_pos = 30;
+        tft_clear(state->tft_instance, BOOTLOADER_BG_COLOR);
+        tft_draw_text(state->tft_instance, 10, 10, "GUIKit Bootloader", BOOTLOADER_SUCCESS_COLOR, BOOTLOADER_BG_COLOR);
+    }
+}
+
+/**
  * Clear TFT screen
  */
 static void tft_clear(TFT_ST7789* tft, uint16_t color) {
@@ -778,8 +800,11 @@ static bool init_tft(BootloaderState* state) {
     tft_clear(state->tft_instance, BOOTLOADER_BG_COLOR);
     
     // Display boot header
-    tft_draw_text(state->tft_instance, 10, 10, "GUIKit Bootloader", BOOTLOADER_TEXT_COLOR, BOOTLOADER_BG_COLOR);
+    tft_draw_text(state->tft_instance, 10, 10, "GUIKit Bootloader", BOOTLOADER_SUCCESS_COLOR, BOOTLOADER_BG_COLOR);
     tft_draw_text(state->tft_instance, 10, 30, "Initializing...", BOOTLOADER_TEXT_COLOR, BOOTLOADER_BG_COLOR);
+    
+    // Display progress message
+    tft_display_progress(state, "TFT Ready");
     
     printf("[TFT] TFT initialized: %dx%d at CS %d\n", hw->tft_width, hw->tft_height, hw->tft_cs_pin);
     
@@ -958,7 +983,7 @@ bool guikit_bootloader_run(BootloaderState* state) {
     // ---------------------------------------------------------------------------
     // Step 3: SD Card Detection
     // ---------------------------------------------------------------------------
-    printf("[BOOT] Step 3/6: SD Card Initialization\n");
+    printf("[BOOT] Step 3/7: SD Card Initialization\n");
     state->current_state = BOOT_STATE_SDCARD_DETECTION;
     
     if (state->hardware.sdcard_detected) {
@@ -970,11 +995,28 @@ bool guikit_bootloader_run(BootloaderState* state) {
     printf("\n");
     
     // ---------------------------------------------------------------------------
-    // Step 3.5: Kernel Check (if SD Card is available)
+    // Step 4: TFT Initialization (moved here to show boot messages early)
+    // ---------------------------------------------------------------------------
+    printf("[BOOT] Step 4/7: TFT Initialization\n");
+    state->current_state = BOOT_STATE_TFT_INITIALIZATION;
+    
+    if (state->hardware.tft_detected) {
+        init_tft(state);
+    }
+    
+    printf("[BOOT] TFT initialization complete\n");
+    printf("  TFT: %s\n", state->hardware.tft_detected ? "Ready" : "Not available");
+    printf("\n");
+    
+    // ---------------------------------------------------------------------------
+    // Step 5: Kernel Check (if SD Card is available)
     // ---------------------------------------------------------------------------
     if (state->hardware.sdcard_detected) {
-        printf("[BOOT] Step 3.5/6: Kernel Check\n");
+        printf("[BOOT] Step 5/7: Kernel Check\n");
         state->current_state = BOOT_STATE_KERNEL_CHECK;
+        
+        // Display progress on TFT
+        tft_display_progress(state, "Checking kernel...");
         
         // Try all kernel paths until one is found
         bool kernel_found = false;
@@ -1032,27 +1074,16 @@ bool guikit_bootloader_run(BootloaderState* state) {
     }
     
     // ---------------------------------------------------------------------------
-    // Step 4: TFT Initialization
+    // Step 6: Memory Strategy Configuration
     // ---------------------------------------------------------------------------
-    printf("[BOOT] Step 4/7: TFT Initialization\n");
-    state->current_state = BOOT_STATE_TFT_INITIALIZATION;
-    
-    if (state->hardware.tft_detected) {
-        init_tft(state);
-    }
-    
-    printf("[BOOT] TFT initialization complete\n");
-    printf("  TFT: %s\n", state->hardware.tft_detected ? "Ready" : "Not available");
-    printf("\n");
-    
-    // ---------------------------------------------------------------------------
-    // Step 5: Memory Strategy Configuration
-    // ---------------------------------------------------------------------------
-    printf("[BOOT] Step 5/7: Memory Strategy Configuration\n");
+    printf("[BOOT] Step 6/7: Memory Strategy Configuration\n";
     state->current_state = BOOT_STATE_MEMORY_STRATEGY_CONFIG;
     
     // Configure memory strategy based on detected hardware
     configure_memory_strategy(state);
+    
+    // Display progress on TFT
+    tft_display_progress(state, "Memory configured");
     
     // Update the main config with the memory strategy
     state->config.memory_strategy = state->memory_config;
@@ -1070,10 +1101,13 @@ bool guikit_bootloader_run(BootloaderState* state) {
     printf("\n");
     
     // ---------------------------------------------------------------------------
-    // Step 6: Memory Strategy Test and Apply
+    // Step 7: Memory Strategy Test and Apply
     // ---------------------------------------------------------------------------
-    printf("[BOOT] Step 6/7: Memory Strategy Test and Apply\n");
+    printf("[BOOT] Step 7/7: Memory Strategy Test and Apply\n");
     state->current_state = BOOT_STATE_MEMORY_STRATEGY_APPLY;
+    
+    // Display progress on TFT
+    tft_display_progress(state, "Testing strategy...");
     
     // Test memory strategy with different GUI sizes
     test_memory_strategy(state);

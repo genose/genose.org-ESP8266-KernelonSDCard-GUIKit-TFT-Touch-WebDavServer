@@ -153,9 +153,9 @@ void bootloader_init(BootloaderState* state, const guikit_hw_config_t* platform_
  * 2. RAM initialization
  * 3. SD Card initialization
  * 4. TFT initialization
- * 5. Memory strategy configuration based on detected hardware
- * 6. Memory strategy testing and application
- * 7. Display results on TFT (if available)
+ * 5. Kernel check (if SD Card available)
+ * 6. Memory strategy configuration based on detected hardware
+ * 7. Memory strategy testing and application and display results on TFT
  * 
  * @param state Bootloader state (initialized by bootloader_init)
  * @return true on success, false on failure
