@@ -24,7 +24,8 @@ typedef enum {
     WIDGET_TYPE_BUTTON,        // Clickable button
     WIDGET_TYPE_LABEL,         // Text display
     WIDGET_TYPE_SLIDER,        // Slider control
-    WIDGET_TYPE_TEXT_EDITOR,   // Full-featured text editor
+    WIDGET_TYPE_TEXT_INPUT,    // Text input field (base for text widgets)
+    WIDGET_TYPE_TEXT_EDITOR,   // Full-featured text editor (extends TEXT_INPUT)
     WIDGET_TYPE_MENU,          // Context menu
     WIDGET_TYPE_COUNT          // Number of widget types
 } WIDGET_TYPE;

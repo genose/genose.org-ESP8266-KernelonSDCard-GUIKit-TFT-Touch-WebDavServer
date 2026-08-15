@@ -668,6 +668,15 @@ ContextMenuItem text_editor_context_menu_items[] = {
     { "Redo",    CONTEXT_ACTION_REDO,     0, true, 0 }
 };
 
+// Default context menu items for textfield (TEXT_INPUT)
+ContextMenuItem textfield_context_menu_items[] = {
+    { "Copy",    CONTEXT_ACTION_COPY,     0, true, 0 },
+    { "Paste",   CONTEXT_ACTION_PASTE,    0, true, 0 },
+    { "Cut",     CONTEXT_ACTION_CUT,      0, true, 0 },
+    { NULL,      CONTEXT_ACTION_NONE,     0, false, 0 },  // Separator
+    { "Select All", CONTEXT_ACTION_SELECT_ALL, 0, true, 0 }
+};
+
 // =============================================================================
 // INITIALIZATION WITH DEFAULT MENU
 // =============================================================================
@@ -676,11 +685,22 @@ ContextMenuItem text_editor_context_menu_items[] = {
  * @brief Initialize context menu system with default configurations
  * 
  * Registers default context menus for built-in widget types.
+ * 
+ * Note: TextEditor extends TextField, so both have context menus.
+ * TextField (TEXT_INPUT) has basic editing, TextEditor has full editing with undo/redo.
  */
 void context_menu_init_with_defaults(void) {
     context_menu_init();
     
-    // Register text editor context menu
+    // Register textfield context menu (base text input)
+    context_menu_register_widget_type(
+        WIDGET_TYPE_TEXT_INPUT,
+        textfield_context_menu_items,
+        sizeof(textfield_context_menu_items) / sizeof(textfield_context_menu_items[0]),
+        NULL  // Use default callback
+    );
+    
+    // Register text editor context menu (extends textfield with undo/redo)
     context_menu_register_widget_type(
         WIDGET_TYPE_TEXT_EDITOR,
         text_editor_context_menu_items,

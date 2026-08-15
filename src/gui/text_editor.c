@@ -1,413 +1,49 @@
 /**
  * @file text_editor.c
- * @brief Full-featured text editor widget implementation for GUIKit
+ * @brief TextEditor implementation - extends TextField
  * @author GUIKit for ESP8266
  * @date 2026
  */
 
 #include "text_editor.h"
-#include "widget_gradient.h"
+#include "renderer.h"
 #include <string.h>
-#include <stdlib.h>
+#include <stdarg.h>
+#include <ctype.h>
 
 // =============================================================================
-// STATIC HELPERS
+// LOCAL DEFINITIONS
 // =============================================================================
 
-/**
- * @brief Get current timestamp (for cursor blink)
- * @return Timestamp in milliseconds
- */
-static uint32_t get_timestamp() {
-    // For ESP8266, use millis() from Arduino
-    // This is a placeholder - actual implementation depends on platform
-    extern uint32_t millis();
-    return millis();
-}
-
-/**
- * @brief Clamp value to range
- */
-static uint16_t clamp_uint16(uint16_t value, uint16_t min_val, uint16_t max_val) {
-    if (value < min_val) return min_val;
-    if (value > max_val) return max_val;
-    return value;
-}
-
-/**
- * @brief Clamp int16 to range
- */
-static int16_t clamp_int16(int16_t value, int16_t min_val, int16_t max_val) {
-    if (value < min_val) return min_val;
-    if (value > max_val) return max_val;
-    return value;
-}
-
-/**
- * @brief Shift lines down starting from index
- */
-static void shift_lines_down(TextEditor* editor, uint16_t start_index) {
-    if (start_index >= TEXT_EDITOR_MAX_LINES - 1) return;
-    
-    uint16_t count = editor->line_count - start_index;
-    if (count == 0) return;
-    
-    memmove(&editor->lines[start_index + 1], 
-            &editor->lines[start_index],
-            count * sizeof(TextEditorLine));
-}
-
-/**
- * @brief Shift lines up starting from index
- */
-static void shift_lines_up(TextEditor* editor, uint16_t start_index) {
-    if (start_index >= editor->line_count) return;
-    
-    uint16_t count = editor->line_count - start_index - 1;
-    if (count > 0) {
-        memmove(&editor->lines[start_index],
-                &editor->lines[start_index + 1],
-                count * sizeof(TextEditorLine));
-    }
-    
-    // Clear the last line
-    if (editor->line_count > 0) {
-        memset(&editor->lines[editor->line_count - 1], 0, sizeof(TextEditorLine));
-    }
-}
-
-/**
- * @brief Shift text in a line
- */
-static void shift_text_right(TextEditorLine* line, uint16_t start_pos, uint16_t count) {
-    if (start_pos + count >= TEXT_EDITOR_MAX_LINE_LENGTH) return;
-    
-    uint16_t length = line->length;
-    uint16_t to_move = length - start_pos;
-    
-    if (to_move > 0) {
-        memmove(&line->text[start_pos + count],
-                &line->text[start_pos],
-                to_move * sizeof(char));
-    }
-    
-    line->length += count;
-    line->text[line->length] = '\0';
-}
-
-/**
- * @brief Shift text in a line left (delete)
- */
-static void shift_text_left(TextEditorLine* line, uint16_t start_pos, uint16_t count) {
-    if (start_pos >= line->length) return;
-    if (count == 0) return;
-    
-    uint16_t to_move = line->length - start_pos - count;
-    if (to_move > 0) {
-        memmove(&line->text[start_pos],
-                &line->text[start_pos + count],
-                to_move * sizeof(char));
-    }
-    
-    line->length -= count;
-    line->text[line->length] = '\0';
-}
-
-/**
- * @brief Insert text into a line at position
- */
-static void line_insert_text(TextEditorLine* line, uint16_t pos, const char* text, uint16_t len) {
-    if (len == 0) return;
-    if (pos > line->length) pos = line->length;
-    
-    // Make sure we don't overflow
-    uint16_t available = TEXT_EDITOR_MAX_LINE_LENGTH - line->length;
-    if (len > available) len = available;
-    
-    shift_text_right(line, pos, len);
-    memcpy(&line->text[pos], text, len * sizeof(char));
-}
-
-/**
- * @brief Delete text from a line
- */
-static void line_delete_text(TextEditorLine* line, uint16_t pos, uint16_t len) {
-    if (len == 0) return;
-    if (pos >= line->length) return;
-    
-    if (pos + len > line->length) {
-        len = line->length - pos;
-    }
-    
-    shift_text_left(line, pos, len);
-}
-
-/**
- * @brief Save state to history
- */
-static void save_to_history(TextEditor* editor) {
-    if (editor->settings.read_only) return;
-    
-    TextEditorHistory* history = &editor->history;
-    
-    // Check if we can save
-    if (history->top >= TEXT_EDITOR_MAX_HISTORY - 1) {
-        // Shift history up
-        memmove(&history->entries[0], 
-                &history->entries[1],
-                (TEXT_EDITOR_MAX_HISTORY - 1) * sizeof(TextEditorHistoryEntry));
-        history->top = TEXT_EDITOR_MAX_HISTORY - 1;
-    } else {
-        history->top++;
-    }
-    
-    history->current = history->top;
-    history->redo_top = -1;  // Clear redo stack
-    
-    TextEditorHistoryEntry* entry = &history->entries[history->top];
-    
-    // Save cursor and selection
-    memcpy(&entry->cursor, &editor->cursor, sizeof(TextEditorCursor));
-    memcpy(&entry->selection, &editor->selection, sizeof(TextEditorSelection));
-    
-    // Save modification info
-    entry->line = editor->cursor.line;
-    entry->column = editor->cursor.column;
-    entry->was_insert = false;
-    entry->removed_length = 0;
-    entry->removed_text[0] = '\0';
-    entry->inserted_text[0] = '\0';
-}
-
-/**
- * @brief Calculate visual column from character column (accounting for tabs)
- */
-static uint16_t calculate_visual_column(const TextEditor* editor, uint16_t line, uint16_t column) {
-    const TextEditorLine* l = &editor->lines[line];
-    uint16_t visual = 0;
-    
-    for (uint16_t i = 0; i < column && i < l->length; i++) {
-        if (l->text[i] == '\t') {
-            visual += editor->settings.tab_size;
-        } else {
-            visual++;
-        }
-    }
-    
-    return visual;
-}
-
-/**
- * @brief Calculate character column from visual column
- */
-static uint16_t calculate_character_column(const TextEditor* editor, uint16_t line, uint16_t visual) {
-    const TextEditorLine* l = &editor->lines[line];
-    uint16_t character = 0;
-    uint16_t current_visual = 0;
-    
-    while (character < l->length && current_visual < visual) {
-        if (l->text[character] == '\t') {
-            current_visual += editor->settings.tab_size;
-        } else {
-            current_visual++;
-        }
-        character++;
-    }
-    
-    return character;
-}
-
-/**
- * @brief Update cursor visual position
- */
-static void update_cursor_visual_position(TextEditor* editor) {
-    if (editor->cursor.line >= editor->line_count) {
-        editor->cursor.x_pos = 0;
-        editor->cursor.y_pos = 0;
-        return;
-    }
-    
-    editor->cursor.x_pos = calculate_visual_column(editor, editor->cursor.line, editor->cursor.column) * editor->settings.font_width;
-    editor->cursor.y_pos = editor->cursor.line * editor->settings.font_height;
-}
-
-/**
- * @brief Ensure cursor is visible (scroll if needed)
- */
-static void ensure_cursor_visible(TextEditor* editor) {
-    uint16_t visible_lines = text_editor_get_visible_height(editor);
-    
-    // Check if cursor is above visible area
-    if (editor->cursor.line < editor->scroll.top_line) {
-        editor->scroll.top_line = editor->cursor.line;
-    }
-    
-    // Check if cursor is below visible area
-    if (editor->cursor.line >= editor->scroll.top_line + visible_lines) {
-        editor->scroll.top_line = editor->cursor.line - visible_lines + 1;
-        if (editor->scroll.top_line < 0) editor->scroll.top_line = 0;
-    }
-    
-    // Check horizontal scroll
-    uint16_t visible_chars = text_editor_get_visible_width(editor);
-    uint16_t cursor_visual = calculate_visual_column(editor, editor->cursor.line, editor->cursor.column);
-    
-    if (cursor_visual < editor->scroll.left_column) {
-        editor->scroll.left_column = cursor_visual;
-    }
-    
-    if (cursor_visual >= editor->scroll.left_column + visible_chars) {
-        editor->scroll.left_column = cursor_visual - visible_chars + 1;
-        if (editor->scroll.left_column < 0) editor->scroll.left_column = 0;
-    }
-    
-    editor->state.needs_render = true;
-}
-
-/**
- * @brief Update selection to match cursor movement
- */
-static void update_selection(TextEditor* editor, uint16_t new_line, uint16_t new_column) {
-    if (!editor->selection.active) {
-        // Start new selection
-        editor->selection.start_line = editor->cursor.line;
-        editor->selection.start_column = editor->cursor.column;
-        editor->selection.end_line = new_line;
-        editor->selection.end_column = new_column;
-        editor->selection.active = true;
-    } else {
-        // Extend selection
-        editor->selection.end_line = new_line;
-        editor->selection.end_column = new_column;
-    }
-    
-    // Normalize selection (start <= end)
-    if (editor->selection.start_line > editor->selection.end_line ||
-        (editor->selection.start_line == editor->selection.end_line && 
-         editor->selection.start_column > editor->selection.end_column)) {
-        uint16_t tmp_line = editor->selection.start_line;
-        uint16_t tmp_col = editor->selection.start_column;
-        editor->selection.start_line = editor->selection.end_line;
-        editor->selection.start_column = editor->selection.end_column;
-        editor->selection.end_line = tmp_line;
-        editor->selection.end_column = tmp_col;
-    }
-    
-    if (editor->callbacks.on_selection_change) {
-        editor->callbacks.on_selection_change(editor);
-    }
-    
-    editor->state.needs_render = true;
-}
-
-/**
- * @brief Clear selection
- */
-static void clear_selection_internal(TextEditor* editor) {
-    editor->selection.active = false;
-    editor->selection.start_line = 0;
-    editor->selection.start_column = 0;
-    editor->selection.end_line = 0;
-    editor->selection.end_column = 0;
-}
-
-/**
- * @brief Delete selected text
- */
-static void delete_selected_text(TextEditor* editor) {
-    if (!editor->selection.active) return;
-    
-    uint16_t start_line = editor->selection.start_line;
-    uint16_t start_col = editor->selection.start_column;
-    uint16_t end_line = editor->selection.end_line;
-    uint16_t end_col = editor->selection.end_column;
-    
-    if (start_line > end_line || (start_line == end_line && start_col > end_col)) {
-        return;
-    }
-    
-    // Save to history
-    save_to_history(editor);
-    
-    if (start_line == end_line) {
-        // Single line selection
-        TextEditorLine* line = &editor->lines[start_line];
-        uint16_t len = end_col - start_col;
-        line_delete_text(line, start_col, len);
-        
-        // Move cursor to start
-        editor->cursor.line = start_line;
-        editor->cursor.column = start_col;
-    } else {
-        // Multi-line selection
-        // Delete from start to end of first line
-        TextEditorLine* first_line = &editor->lines[start_line];
-        uint16_t first_len = first_line->length - start_col;
-        line_delete_text(first_line, start_col, first_len);
-        
-        // Delete middle lines
-        if (end_line > start_line + 1) {
-            uint16_t lines_to_delete = end_line - start_line - 1;
-            for (uint16_t i = 0; i < lines_to_delete; i++) {
-                text_editor_delete_line(editor, start_line + 1);
-            }
-        }
-        
-        // Delete from start of last line to end
-        TextEditorLine* last_line = &editor->lines[start_line + 1];
-        line_delete_text(last_line, 0, end_col);
-        
-        // Join the first and last lines
-        text_editor_join_lines(editor);
-        
-        // Move cursor to start
-        editor->cursor.line = start_line;
-        editor->cursor.column = start_col;
-    }
-    
-    clear_selection_internal(editor);
-    editor->state.dirty = true;
-}
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
+#define CLAMP(value, min_val, max_val) MAX(min_val, MIN(value, max_val))
 
 // =============================================================================
-// LIFECYCLE
+// CONSTRUCTORS
 // =============================================================================
 
 TextEditor* text_editor_create(uint16_t x, uint16_t y, uint16_t width, uint16_t height) {
-    // For now, use static allocation (ESP8266 friendly)
-    // In production, use pool allocation
-    static TextEditor editors[4];
-    static uint8_t editor_count = 0;
+    // Allocate from pool or malloc
+    TextEditor* editor = (TextEditor*)malloc(sizeof(TextEditor));
+    if (!editor) {
+        return NULL;
+    }
     
-    if (editor_count >= 4) return NULL;
-    
-    TextEditor* editor = &editors[editor_count++];
     text_editor_init(editor, x, y, width, height);
     return editor;
 }
 
-void text_editor_destroy(TextEditor* editor) {
-    // Just reset for now
-    if (editor) {
-        text_editor_reset(editor);
-    }
-}
-
 void text_editor_init(TextEditor* editor, uint16_t x, uint16_t y, uint16_t width, uint16_t height) {
-    memset(editor, 0, sizeof(TextEditor));
+    if (!editor) return;
     
-    // Set bounds
-    editor->bounds.x = x;
-    editor->bounds.y = y;
-    editor->bounds.width = width;
-    editor->bounds.height = height;
+    // Initialize base TextField
+    textfield_init(&editor->textfield, x, y, width, height);
+    editor->textfield.base.type = WIDGET_TYPE_TEXT_EDITOR;
     
-    // Initialize first line
-    editor->line_count = 1;
-    editor->lines[0].length = 0;
-    editor->lines[0].visual_length = 0;
-    editor->lines[0].dirty = false;
-    editor->lines[0].text[0] = '\0';
+    // Set TextField to multi-line mode
+    textfield_set_multiline(&editor->textfield, true);
+    textfield_set_word_wrap(&editor->textfield, true);
     
     // Initialize cursor
     editor->cursor.line = 0;
@@ -415,721 +51,417 @@ void text_editor_init(TextEditor* editor, uint16_t x, uint16_t y, uint16_t width
     editor->cursor.x_pos = 0;
     editor->cursor.y_pos = 0;
     editor->cursor.visible = true;
-    editor->cursor.last_blink = get_timestamp();
-    
-    // Initialize scroll
-    editor->scroll.top_line = 0;
-    editor->scroll.left_column = 0;
-    editor->scroll.line_offset = 0;
+    editor->cursor.last_blink = 0;
     
     // Initialize selection
-    editor->selection.active = false;
     editor->selection.start_line = 0;
     editor->selection.start_column = 0;
     editor->selection.end_line = 0;
     editor->selection.end_column = 0;
-    editor->selection.bg_color = 0x8410;  // Dark gray
-    editor->selection.fg_color = 0xFFFF;  // White
+    editor->selection.active = false;
+    editor->selection.bg_color = 0xA514;  // Light blue
+    editor->selection.fg_color = 0x0000;  // Black
     
-    // Initialize settings
-    editor->settings.font_width = TEXT_EDITOR_FONT_WIDTH;
-    editor->settings.font_height = TEXT_EDITOR_FONT_HEIGHT;
-    editor->settings.tab_size = TEXT_EDITOR_TAB_SIZE;
-    editor->settings.show_line_numbers = false;
-    editor->settings.word_wrap = false;
-    editor->settings.read_only = false;
-    editor->settings.syntax_highlight = false;
-    
-    // Initialize colors
-    editor->colors.bg_color = COLOR_WHITE;
-    editor->colors.fg_color = COLOR_BLACK;
-    editor->colors.cursor_color = COLOR_BLACK;
-    editor->colors.line_number_color = 0x8410;  // Dark gray
-    editor->colors.selection_bg = 0x50A0;  // Selected color
-    editor->colors.selection_fg = COLOR_WHITE;
-    editor->colors.gutter_bg = 0xE71C;  // Light gray
+    // Initialize scroll
+    editor->scroll.line_offset = 0;
     
     // Initialize history
     editor->history.current = -1;
     editor->history.top = -1;
     editor->history.redo_top = -1;
     
-    // Initialize touch
-    editor->touch.touch_active = false;
-    editor->touch.touch_dragging = false;
+    // Initialize editor settings
+    editor->editor_settings.show_line_numbers = false;
+    editor->editor_settings.syntax_highlight = false;
     
-    // Initialize clipboard
-    editor->clipboard.length = 0;
-    editor->clipboard.text[0] = '\0';
-    
-    // Initialize callbacks
-    editor->callbacks.on_change = NULL;
-    editor->callbacks.on_cursor_move = NULL;
-    editor->callbacks.on_selection_change = NULL;
-    editor->callbacks.on_key = NULL;
+    // Initialize editor colors
+    editor->editor_colors.line_number_color = 0x8410;  // Gray
+    editor->editor_colors.selection_bg = 0xA514;       // Light blue
+    editor->editor_colors.selection_fg = 0x0000;       // Black
+    editor->editor_colors.gutter_bg = 0xE71C;          // Light gray
     
     // Initialize state
     editor->state.focused = false;
     editor->state.dirty = false;
     editor->state.needs_render = true;
-    editor->state.last_input = 0;
+    editor->state.last_activity = 0;
     
-    // Widget pointer is NULL (optional)
-    editor->widget = NULL;
+    // Initialize callbacks
+    editor->on_cursor_move = NULL;
+    editor->on_selection_change = NULL;
+    editor->on_undo_redo = NULL;
+    editor->syntax_highlight_callback = NULL;
 }
 
-void text_editor_reset(TextEditor* editor) {
-    text_editor_init(editor, editor->bounds.x, editor->bounds.y, editor->bounds.width, editor->bounds.height);
-}
-
-// =============================================================================
-// TEXT CONTENT
-// =============================================================================
-
-void text_editor_set_text(TextEditor* editor, const char* text) {
-    if (!text) return;
+void text_editor_destroy(TextEditor* editor) {
+    if (!editor) return;
     
-    text_editor_clear_history(editor);
-    text_editor_reset(editor);
+    // Clean up textfield
+    textfield_destroy(&editor->textfield);
     
-    uint16_t line_start = 0;
-    uint16_t text_len = strlen(text);
-    
-    for (uint16_t i = 0; i < text_len; i++) {
-        if (text[i] == '\n' || editor->line_count >= TEXT_EDITOR_MAX_LINES) {
-            // End of line
-            uint16_t line_len = i - line_start;
-            if (line_len > 0) {
-                if (editor->line_count >= TEXT_EDITOR_MAX_LINES) break;
-                
-                TextEditorLine* line = &editor->lines[editor->line_count];
-                if (line_len >= TEXT_EDITOR_MAX_LINE_LENGTH) line_len = TEXT_EDITOR_MAX_LINE_LENGTH - 1;
-                
-                memcpy(line->text, &text[line_start], line_len);
-                line->text[line_len] = '\0';
-                line->length = line_len;
-                line->visual_length = line_len;  // Will be calculated later
-                line->dirty = true;
-                editor->line_count++;
-            }
-            
-            // Start new line
-            if (editor->line_count >= TEXT_EDITOR_MAX_LINES) break;
-            
-            TextEditorLine* new_line = &editor->lines[editor->line_count];
-            new_line->length = 0;
-            new_line->visual_length = 0;
-            new_line->text[0] = '\0';
-            new_line->dirty = false;
-            editor->line_count++;
-            
-            line_start = i + 1;
-        }
-    }
-    
-    // Handle last line
-    if (line_start < text_len) {
-        if (editor->line_count >= TEXT_EDITOR_MAX_LINES) {
-            editor->line_count = TEXT_EDITOR_MAX_LINES;
-        } else {
-            uint16_t line_len = text_len - line_start;
-            if (line_len >= TEXT_EDITOR_MAX_LINE_LENGTH) line_len = TEXT_EDITOR_MAX_LINE_LENGTH - 1;
-            
-            TextEditorLine* line = &editor->lines[editor->line_count];
-            memcpy(line->text, &text[line_start], line_len);
-            line->text[line_len] = '\0';
-            line->length = line_len;
-            line->visual_length = line_len;
-            line->dirty = true;
-            editor->line_count++;
-        }
-    }
-    
-    // Ensure at least one line
-    if (editor->line_count == 0) {
-        editor->line_count = 1;
-        editor->lines[0].length = 0;
-        editor->lines[0].text[0] = '\0';
-    }
-    
-    // Reset cursor
-    editor->cursor.line = 0;
-    editor->cursor.column = 0;
-    update_cursor_visual_position(editor);
-    
-    // Clear scroll
-    editor->scroll.top_line = 0;
-    editor->scroll.left_column = 0;
-    
-    editor->state.dirty = true;
-    editor->state.needs_render = true;
-    
-    if (editor->callbacks.on_change) {
-        editor->callbacks.on_change(editor);
-    }
-}
-
-uint16_t text_editor_get_text(TextEditor* editor, char* buffer, uint16_t buffer_size) {
-    uint16_t total = 0;
-    
-    for (uint16_t i = 0; i < editor->line_count; i++) {
-        TextEditorLine* line = &editor->lines[i];
-        
-        if (total + line->length + 1 > buffer_size) break;
-        
-        if (i > 0) {
-            buffer[total++] = '\n';
-            if (total >= buffer_size) break;
-        }
-        
-        memcpy(&buffer[total], line->text, line->length);
-        total += line->length;
-    }
-    
-    if (total < buffer_size) {
-        buffer[total] = '\0';
-    }
-    
-    return total;
-}
-
-uint32_t text_editor_get_text_length(const TextEditor* editor) {
-    uint32_t total = 0;
-    
-    for (uint16_t i = 0; i < editor->line_count; i++) {
-        total += editor->lines[i].length;
-    }
-    
-    // Add newlines
-    if (editor->line_count > 1) {
-        total += editor->line_count - 1;
-    }
-    
-    return total;
-}
-
-uint16_t text_editor_get_line_count(const TextEditor* editor) {
-    return editor->line_count;
-}
-
-const char* text_editor_get_line(const TextEditor* editor, uint16_t line_index) {
-    if (line_index >= editor->line_count) return NULL;
-    return editor->lines[line_index].text;
-}
-
-uint16_t text_editor_get_line_length(const TextEditor* editor, uint16_t line_index) {
-    if (line_index >= editor->line_count) return 0;
-    return editor->lines[line_index].length;
-}
-
-void text_editor_insert_text(TextEditor* editor, const char* text, uint16_t length) {
-    if (editor->settings.read_only) return;
-    if (!text || length == 0) return;
-    if (length == 0) length = strlen(text);
-    if (length == 0) return;
-    
-    save_to_history(editor);
-    
-    // Delete selection if active
-    if (editor->selection.active) {
-        delete_selected_text(editor);
-    }
-    
-    // Insert text at cursor
-    TextEditorLine* line = &editor->lines[editor->cursor.line];
-    line_insert_text(line, editor->cursor.column, text, length);
-    
-    // Move cursor
-    editor->cursor.column += length;
-    update_cursor_visual_position(editor);
-    ensure_cursor_visible(editor);
-    
-    editor->state.dirty = true;
-    editor->state.needs_render = true;
-    
-    if (editor->callbacks.on_change) {
-        editor->callbacks.on_change(editor);
-    }
-    
-    if (editor->callbacks.on_cursor_move) {
-        editor->callbacks.on_cursor_move(editor);
-    }
-}
-
-void text_editor_insert_char(TextEditor* editor, char c) {
-    text_editor_insert_text(editor, &c, 1);
-}
-
-void text_editor_delete_text(TextEditor* editor, uint16_t length) {
-    if (editor->settings.read_only) return;
-    
-    if (editor->selection.active) {
-        delete_selected_text(editor);
-        return;
-    }
-    
-    if (length == 0) length = 1;
-    
-    save_to_history(editor);
-    
-    TextEditorLine* line = &editor->lines[editor->cursor.line];
-    line_delete_text(line, editor->cursor.column, length);
-    
-    editor->state.dirty = true;
-    editor->state.needs_render = true;
-    
-    if (editor->callbacks.on_change) {
-        editor->callbacks.on_change(editor);
-    }
-}
-
-void text_editor_delete_char(TextEditor* editor) {
-    text_editor_delete_text(editor, 1);
-}
-
-void text_editor_backspace(TextEditor* editor) {
-    if (editor->settings.read_only) return;
-    
-    if (editor->selection.active) {
-        delete_selected_text(editor);
-        return;
-    }
-    
-    if (text_editor_cursor_at_document_start(editor)) return;
-    
-    save_to_history(editor);
-    
-    if (text_editor_cursor_at_line_start(editor)) {
-        // Join with previous line
-        if (editor->cursor.line > 0) {
-            text_editor_move_cursor_up(editor, false);
-            text_editor_move_cursor_end(editor, false);
-            text_editor_join_lines(editor);
-        }
-    } else {
-        // Delete character before cursor
-        TextEditorLine* line = &editor->lines[editor->cursor.line];
-        line_delete_text(line, editor->cursor.column - 1, 1);
-        editor->cursor.column--;
-        update_cursor_visual_position(editor);
-    }
-    
-    editor->state.dirty = true;
-    editor->state.needs_render = true;
-    
-    if (editor->callbacks.on_change) {
-        editor->callbacks.on_change(editor);
-    }
-    
-    if (editor->callbacks.on_cursor_move) {
-        editor->callbacks.on_cursor_move(editor);
-    }
+    free(editor);
 }
 
 // =============================================================================
-// CURSOR OPERATIONS
+// EDITOR-SPECIFIC SETTINGS
+// =============================================================================
+
+void text_editor_show_line_numbers(TextEditor* editor, bool show) {
+    if (!editor) return;
+    editor->editor_settings.show_line_numbers = show;
+    editor->state.needs_render = true;
+}
+
+void text_editor_set_syntax_highlight(TextEditor* editor, bool enabled, 
+                                     Color (*callback)(TextEditor*, uint16_t, uint16_t, const char*, uint16_t)) {
+    if (!editor) return;
+    editor->editor_settings.syntax_highlight = enabled;
+    editor->syntax_highlight_callback = callback;
+    editor->state.needs_render = true;
+}
+
+void text_editor_set_line_number_color(TextEditor* editor, Color color) {
+    if (!editor) return;
+    editor->editor_colors.line_number_color = color;
+    editor->state.needs_render = true;
+}
+
+void text_editor_set_selection_colors(TextEditor* editor, Color bg_color, Color fg_color) {
+    if (!editor) return;
+    editor->editor_colors.selection_bg = bg_color;
+    editor->editor_colors.selection_fg = fg_color;
+    editor->selection.bg_color = bg_color;
+    editor->selection.fg_color = fg_color;
+    editor->state.needs_render = true;
+}
+
+// =============================================================================
+// CURSOR MANAGEMENT
 // =============================================================================
 
 void text_editor_set_cursor(TextEditor* editor, uint16_t line, uint16_t column) {
-    line = clamp_uint16(line, 0, editor->line_count - 1);
+    if (!editor) return;
     
-    if (line < editor->line_count) {
-        column = clamp_uint16(column, 0, editor->lines[line].length);
+    line = CLAMP(line, 0, editor->textfield.line_count - 1);
+    
+    TextFieldLine* text_line = textfield_get_line(&editor->textfield, line);
+    if (text_line) {
+        column = CLAMP(column, 0, text_line->length);
     } else {
         column = 0;
     }
     
+    // Save old position for selection tracking
+    if (editor->selection.active) {
+        // Extend selection
+        editor->selection.end_line = line;
+        editor->selection.end_column = column;
+    }
+    
     editor->cursor.line = line;
     editor->cursor.column = column;
-    update_cursor_visual_position(editor);
-    ensure_cursor_visible(editor);
+    editor->cursor.x_pos = 0;  // Will be calculated in update_cursor_position
+    editor->cursor.y_pos = 0;
     
-    if (!editor->selection.active) {
-        clear_selection_internal(editor);
+    text_editor_update_cursor_position(editor);
+    
+    if (editor->on_cursor_move) {
+        editor->on_cursor_move(editor);
     }
-    
-    if (editor->callbacks.on_cursor_move) {
-        editor->callbacks.on_cursor_move(editor);
+}
+
+void text_editor_cursor_up(TextEditor* editor) {
+    if (!editor) return;
+    if (editor->cursor.line > 0) {
+        text_editor_set_cursor(editor, editor->cursor.line - 1, editor->cursor.column);
     }
+}
+
+void text_editor_cursor_down(TextEditor* editor) {
+    if (!editor) return;
+    if (editor->cursor.line < editor->textfield.line_count - 1) {
+        text_editor_set_cursor(editor, editor->cursor.line + 1, editor->cursor.column);
+    }
+}
+
+void text_editor_cursor_left(TextEditor* editor) {
+    if (!editor) return;
     
-    editor->state.needs_render = true;
+    TextFieldLine* line = textfield_get_line(&editor->textfield, editor->cursor.line);
+    if (line && editor->cursor.column > 0) {
+        text_editor_set_cursor(editor, editor->cursor.line, editor->cursor.column - 1);
+    } else if (editor->cursor.line > 0) {
+        // Move to end of previous line
+        line = textfield_get_line(&editor->textfield, editor->cursor.line - 1);
+        if (line) {
+            text_editor_set_cursor(editor, editor->cursor.line - 1, line->length);
+        }
+    }
+}
+
+void text_editor_cursor_right(TextEditor* editor) {
+    if (!editor) return;
+    
+    TextFieldLine* line = textfield_get_line(&editor->textfield, editor->cursor.line);
+    if (line && editor->cursor.column < line->length) {
+        text_editor_set_cursor(editor, editor->cursor.line, editor->cursor.column + 1);
+    } else if (editor->cursor.line < editor->textfield.line_count - 1) {
+        // Move to start of next line
+        text_editor_set_cursor(editor, editor->cursor.line + 1, 0);
+    }
+}
+
+void text_editor_cursor_home(TextEditor* editor) {
+    if (!editor) return;
+    text_editor_set_cursor(editor, editor->cursor.line, 0);
+}
+
+void text_editor_cursor_end(TextEditor* editor) {
+    if (!editor) return;
+    
+    TextFieldLine* line = textfield_get_line(&editor->textfield, editor->cursor.line);
+    if (line) {
+        text_editor_set_cursor(editor, editor->cursor.line, line->length);
+    }
+}
+
+void text_editor_cursor_document_start(TextEditor* editor) {
+    if (!editor) return;
+    text_editor_set_cursor(editor, 0, 0);
+    text_editor_scroll_to_line(editor, 0);
+}
+
+void text_editor_cursor_document_end(TextEditor* editor) {
+    if (!editor) return;
+    uint16_t last_line = editor->textfield.line_count - 1;
+    if (last_line > 0) {
+        TextFieldLine* line = textfield_get_line(&editor->textfield, last_line);
+        text_editor_set_cursor(editor, last_line, line ? line->length : 0);
+        text_editor_scroll_to_line(editor, last_line);
+    }
 }
 
 uint16_t text_editor_get_cursor_line(const TextEditor* editor) {
-    return editor->cursor.line;
+    return editor ? editor->cursor.line : 0;
 }
 
 uint16_t text_editor_get_cursor_column(const TextEditor* editor) {
-    return editor->cursor.column;
+    return editor ? editor->cursor.column : 0;
 }
 
-void text_editor_move_cursor_up(TextEditor* editor, bool shift) {
-    if (editor->cursor.line == 0) {
-        // At top, try to move to line start
-        editor->cursor.column = 0;
-    } else {
-        uint16_t prev_line = editor->cursor.line - 1;
-        uint16_t target_column = editor->cursor.column;
-        
-        // Clamp column to previous line length
-        if (target_column >= editor->lines[prev_line].length) {
-            target_column = editor->lines[prev_line].length;
-        }
-        
-        uint16_t old_line = editor->cursor.line;
-        uint16_t old_column = editor->cursor.column;
-        
-        editor->cursor.line = prev_line;
-        editor->cursor.column = target_column;
-        
-        if (shift) {
-            update_selection(editor, old_line, old_column);
-        } else {
-            clear_selection_internal(editor);
-        }
+void text_editor_update_cursor_position(TextEditor* editor) {
+    if (!editor) return;
+    
+    uint16_t visible_lines = text_editor_get_visible_lines(editor);
+    uint16_t first_visible = text_editor_get_first_visible_line(editor);
+    
+    // Calculate cursor Y position
+    uint16_t line_height = text_editor_get_line_height(editor);
+    uint16_t relative_line = editor->cursor.line - first_visible;
+    editor->cursor.y_pos = relative_line * line_height + editor->textfield.base.y - editor->scroll.line_offset;
+    
+    // Calculate cursor X position
+    TextFieldLine* line = textfield_get_line(&editor->textfield, editor->cursor.line);
+    if (line) {
+        uint16_t char_width = editor->textfield.settings.font_width;
+        editor->cursor.x_pos = editor->cursor.column * char_width + editor->textfield.base.x;
     }
     
-    update_cursor_visual_position(editor);
-    ensure_cursor_visible(editor);
-    
-    if (editor->callbacks.on_cursor_move) {
-        editor->callbacks.on_cursor_move(editor);
+    // Auto-scroll to keep cursor visible
+    if (relative_line >= visible_lines) {
+        text_editor_scroll_to_line(editor, editor->cursor.line - visible_lines + 1);
+    } else if (relative_line < 0) {
+        text_editor_scroll_to_line(editor, editor->cursor.line);
     }
-    
-    editor->state.needs_render = true;
 }
 
-void text_editor_move_cursor_down(TextEditor* editor, bool shift) {
-    if (editor->cursor.line >= editor->line_count - 1) {
-        // At bottom, try to move to line end
-        if (editor->line_count > 0) {
-            editor->cursor.column = editor->lines[editor->cursor.line].length;
-        }
-    } else {
-        uint16_t next_line = editor->cursor.line + 1;
-        uint16_t target_column = editor->cursor.column;
-        
-        // Clamp column to next line length
-        if (target_column >= editor->lines[next_line].length) {
-            target_column = editor->lines[next_line].length;
-        }
-        
-        uint16_t old_line = editor->cursor.line;
-        uint16_t old_column = editor->cursor.column;
-        
-        editor->cursor.line = next_line;
-        editor->cursor.column = target_column;
-        
-        if (shift) {
-            update_selection(editor, old_line, old_column);
-        } else {
-            clear_selection_internal(editor);
-        }
-    }
+void text_editor_blink_cursor(TextEditor* editor) {
+    if (!editor) return;
     
-    update_cursor_visual_position(editor);
-    ensure_cursor_visible(editor);
-    
-    if (editor->callbacks.on_cursor_move) {
-        editor->callbacks.on_cursor_move(editor);
-    }
-    
-    editor->state.needs_render = true;
-}
-
-void text_editor_move_cursor_left(TextEditor* editor, bool shift) {
-    if (text_editor_cursor_at_document_start(editor)) return;
-    
-    uint16_t old_line = editor->cursor.line;
-    uint16_t old_column = editor->cursor.column;
-    
-    if (text_editor_cursor_at_line_start(editor)) {
-        // Move to end of previous line
-        if (editor->cursor.line > 0) {
-            editor->cursor.line--;
-            editor->cursor.column = editor->lines[editor->cursor.line].length;
-        }
-    } else {
-        editor->cursor.column--;
-    }
-    
-    if (shift) {
-        update_selection(editor, old_line, old_column);
-    } else {
-        clear_selection_internal(editor);
-    }
-    
-    update_cursor_visual_position(editor);
-    ensure_cursor_visible(editor);
-    
-    if (editor->callbacks.on_cursor_move) {
-        editor->callbacks.on_cursor_move(editor);
-    }
-    
-    editor->state.needs_render = true;
-}
-
-void text_editor_move_cursor_right(TextEditor* editor, bool shift) {
-    if (text_editor_cursor_at_document_end(editor)) return;
-    
-    uint16_t old_line = editor->cursor.line;
-    uint16_t old_column = editor->cursor.column;
-    
-    if (text_editor_cursor_at_line_end(editor)) {
-        // Move to start of next line
-        if (editor->cursor.line < editor->line_count - 1) {
-            editor->cursor.line++;
-            editor->cursor.column = 0;
-        }
-    } else {
-        editor->cursor.column++;
-    }
-    
-    if (shift) {
-        update_selection(editor, old_line, old_column);
-    } else {
-        clear_selection_internal(editor);
-    }
-    
-    update_cursor_visual_position(editor);
-    ensure_cursor_visible(editor);
-    
-    if (editor->callbacks.on_cursor_move) {
-        editor->callbacks.on_cursor_move(editor);
-    }
-    
-    editor->state.needs_render = true;
-}
-
-void text_editor_move_cursor_home(TextEditor* editor, bool shift) {
-    uint16_t old_line = editor->cursor.line;
-    uint16_t old_column = editor->cursor.column;
-    
-    editor->cursor.column = 0;
-    
-    if (shift) {
-        update_selection(editor, old_line, old_column);
-    } else {
-        clear_selection_internal(editor);
-    }
-    
-    update_cursor_visual_position(editor);
-    ensure_cursor_visible(editor);
-    
-    if (editor->callbacks.on_cursor_move) {
-        editor->callbacks.on_cursor_move(editor);
-    }
-    
-    editor->state.needs_render = true;
-}
-
-void text_editor_move_cursor_end(TextEditor* editor, bool shift) {
-    uint16_t old_line = editor->cursor.line;
-    uint16_t old_column = editor->cursor.column;
-    
-    if (editor->cursor.line < editor->line_count) {
-        editor->cursor.column = editor->lines[editor->cursor.line].length;
-    }
-    
-    if (shift) {
-        update_selection(editor, old_line, old_column);
-    } else {
-        clear_selection_internal(editor);
-    }
-    
-    update_cursor_visual_position(editor);
-    ensure_cursor_visible(editor);
-    
-    if (editor->callbacks.on_cursor_move) {
-        editor->callbacks.on_cursor_move(editor);
-    }
-    
-    editor->state.needs_render = true;
-}
-
-void text_editor_move_cursor_document_start(TextEditor* editor, bool shift) {
-    uint16_t old_line = editor->cursor.line;
-    uint16_t old_column = editor->cursor.column;
-    
-    editor->cursor.line = 0;
-    editor->cursor.column = 0;
-    
-    if (shift) {
-        update_selection(editor, old_line, old_column);
-    } else {
-        clear_selection_internal(editor);
-    }
-    
-    update_cursor_visual_position(editor);
-    ensure_cursor_visible(editor);
-    
-    if (editor->callbacks.on_cursor_move) {
-        editor->callbacks.on_cursor_move(editor);
-    }
-    
-    editor->state.needs_render = true;
-}
-
-void text_editor_move_cursor_document_end(TextEditor* editor, bool shift) {
-    uint16_t old_line = editor->cursor.line;
-    uint16_t old_column = editor->cursor.column;
-    
-    if (editor->line_count > 0) {
-        editor->cursor.line = editor->line_count - 1;
-        editor->cursor.column = editor->lines[editor->cursor.line].length;
-    }
-    
-    if (shift) {
-        update_selection(editor, old_line, old_column);
-    } else {
-        clear_selection_internal(editor);
-    }
-    
-    update_cursor_visual_position(editor);
-    ensure_cursor_visible(editor);
-    
-    if (editor->callbacks.on_cursor_move) {
-        editor->callbacks.on_cursor_move(editor);
-    }
-    
-    editor->state.needs_render = true;
-}
-
-void text_editor_move_cursor_to(TextEditor* editor, uint16_t x, uint16_t y) {
-    // Convert pixel position to line and column
-    uint16_t line = y / editor->settings.font_height + editor->scroll.top_line;
-    line = clamp_uint16(line, 0, editor->line_count - 1);
-    
-    uint16_t pixel_x = x - editor->bounds.x;
-    if (pixel_x < 0) pixel_x = 0;
-    
-    // Account for gutter if line numbers are shown
-    uint16_t text_x = pixel_x;
-    if (editor->settings.show_line_numbers) {
-        text_x -= TEXT_EDITOR_GUTTER_WIDTH;
-        if (text_x < 0) text_x = 0;
-    }
-    
-    // Account for scroll
-    text_x += editor->scroll.left_column * editor->settings.font_width;
-    
-    uint16_t column = text_x / editor->settings.font_width;
-    column = clamp_uint16(column, 0, editor->lines[line].length);
-    
-    text_editor_set_cursor(editor, line, column);
+    uint32_t now = 0;  // Would use millis() or similar
+    // For now, just toggle visibility
+    editor->cursor.visible = !editor->cursor.visible;
 }
 
 // =============================================================================
-// SELECTION OPERATIONS
+// SELECTION MANAGEMENT
 // =============================================================================
 
 void text_editor_set_selection(TextEditor* editor, uint16_t start_line, uint16_t start_column,
-                              uint16_t end_line, uint16_t end_column) {
-    // Clamp values
-    start_line = clamp_uint16(start_line, 0, editor->line_count - 1);
-    end_line = clamp_uint16(end_line, 0, editor->line_count - 1);
+                               uint16_t end_line, uint16_t end_column) {
+    if (!editor) return;
     
-    if (start_line == end_line) {
-        start_column = clamp_uint16(start_column, 0, editor->lines[start_line].length);
-        end_column = clamp_uint16(end_column, 0, editor->lines[end_line].length);
-    } else {
-        start_column = clamp_uint16(start_column, 0, editor->lines[start_line].length);
-        end_column = clamp_uint16(end_column, 0, editor->lines[end_line].length);
+    start_line = CLAMP(start_line, 0, editor->textfield.line_count - 1);
+    end_line = CLAMP(end_line, 0, editor->textfield.line_count - 1);
+    
+    TextFieldLine* start_line_ptr = textfield_get_line(&editor->textfield, start_line);
+    TextFieldLine* end_line_ptr = textfield_get_line(&editor->textfield, end_line);
+    
+    if (start_line_ptr) {
+        start_column = CLAMP(start_column, 0, start_line_ptr->length);
+    }
+    if (end_line_ptr) {
+        end_column = CLAMP(end_column, 0, end_line_ptr->length);
     }
     
-    // Set selection
     editor->selection.start_line = start_line;
     editor->selection.start_column = start_column;
     editor->selection.end_line = end_line;
     editor->selection.end_column = end_column;
     editor->selection.active = true;
     
-    // Normalize
-    if (start_line > end_line || (start_line == end_line && start_column > end_column)) {
-        uint16_t tmp_line = editor->selection.start_line;
-        uint16_t tmp_col = editor->selection.start_column;
-        editor->selection.start_line = editor->selection.end_line;
-        editor->selection.start_column = editor->selection.end_column;
-        editor->selection.end_line = tmp_line;
-        editor->selection.end_column = tmp_col;
+    if (editor->on_selection_change) {
+        editor->on_selection_change(editor);
     }
     
     editor->state.needs_render = true;
-    
-    if (editor->callbacks.on_selection_change) {
-        editor->callbacks.on_selection_change(editor);
-    }
 }
 
 void text_editor_clear_selection(TextEditor* editor) {
-    clear_selection_internal(editor);
+    if (!editor) return;
+    
+    editor->selection.active = false;
     editor->state.needs_render = true;
     
-    if (editor->callbacks.on_selection_change) {
-        editor->callbacks.on_selection_change(editor);
+    if (editor->on_selection_change) {
+        editor->on_selection_change(editor);
     }
 }
 
 void text_editor_select_all(TextEditor* editor) {
-    if (editor->line_count == 0) return;
+    if (!editor) return;
     
-    editor->selection.start_line = 0;
-    editor->selection.start_column = 0;
-    editor->selection.end_line = editor->line_count - 1;
-    editor->selection.end_column = editor->lines[editor->selection.end_line].length;
-    editor->selection.active = true;
+    uint16_t last_line = editor->textfield.line_count - 1;
+    TextFieldLine* last_line_ptr = textfield_get_line(&editor->textfield, last_line);
     
-    editor->state.needs_render = true;
+    text_editor_set_selection(editor, 
+                             0, 0,
+                             last_line, last_line_ptr ? last_line_ptr->length : 0);
+}
+
+void text_editor_select_line(TextEditor* editor) {
+    if (!editor) return;
     
-    if (editor->callbacks.on_selection_change) {
-        editor->callbacks.on_selection_change(editor);
+    TextFieldLine* line = textfield_get_line(&editor->textfield, editor->cursor.line);
+    if (line) {
+        text_editor_set_selection(editor,
+                                 editor->cursor.line, 0,
+                                 editor->cursor.line, line->length);
     }
+}
+
+void text_editor_select_word(TextEditor* editor) {
+    if (!editor) return;
+    
+    uint16_t line = editor->cursor.line;
+    uint16_t col = editor->cursor.column;
+    TextFieldLine* line_ptr = textfield_get_line(&editor->textfield, line);
+    if (!line_ptr) return;
+    
+    // Find start of word
+    uint16_t start_col = col;
+    while (start_col > 0 && isalnum(line_ptr->text[start_col - 1])) {
+        start_col--;
+    }
+    
+    // Find end of word
+    uint16_t end_col = col;
+    while (end_col < line_ptr->length && isalnum(line_ptr->text[end_col])) {
+        end_col++;
+    }
+    
+    text_editor_set_selection(editor, line, start_col, line, end_col);
 }
 
 bool text_editor_has_selection(const TextEditor* editor) {
-    return editor->selection.active;
+    return editor && editor->selection.active;
 }
 
-uint16_t text_editor_get_selected_text(const TextEditor* editor, char* buffer, uint16_t buffer_size) {
-    if (!editor->selection.active) return 0;
+char* text_editor_get_selected_text(const TextEditor* editor) {
+    if (!editor || !editor->selection.active) {
+        return NULL;
+    }
     
-    uint16_t total = 0;
-    uint16_t start_line = editor->selection.start_line;
-    uint16_t start_col = editor->selection.start_column;
-    uint16_t end_line = editor->selection.end_line;
-    uint16_t end_col = editor->selection.end_column;
+    // Calculate total length needed
+    size_t total_length = 0;
     
-    for (uint16_t line = start_line; line <= end_line; line++) {
-        uint16_t start = (line == start_line) ? start_col : 0;
-        uint16_t end = (line == end_line) ? end_col : editor->lines[line].length;
-        uint16_t len = end - start;
-        
-        if (total + len + 1 > buffer_size) break;
-        
-        if (line > start_line) {
-            buffer[total++] = '\n';
-            if (total >= buffer_size) break;
+    if (editor->selection.start_line == editor->selection.end_line) {
+        // Single line selection
+        total_length = editor->selection.end_column - editor->selection.start_column;
+    } else {
+        // Multi-line selection
+        // First line
+        TextFieldLine* first_line = textfield_get_line(&editor->textfield, editor->selection.start_line);
+        if (first_line) {
+            total_length += first_line->length - editor->selection.start_column;
         }
         
-        memcpy(&buffer[total], &editor->lines[line].text[start], len);
-        total += len;
+        // Middle lines (full lines)
+        for (uint16_t i = editor->selection.start_line + 1; i < editor->selection.end_line; i++) {
+            TextFieldLine* line = textfield_get_line(&editor->textfield, i);
+            if (line) {
+                total_length += line->length;
+            }
+        }
+        
+        // Last line
+        TextFieldLine* last_line = textfield_get_line(&editor->textfield, editor->selection.end_line);
+        if (last_line) {
+            total_length += editor->selection.end_column;
+        }
+        
+        // Add newline characters
+        total_length += (editor->selection.end_line - editor->selection.start_line);
     }
     
-    if (total < buffer_size) {
-        buffer[total] = '\0';
+    // Allocate buffer (+1 for null terminator)
+    char* buffer = (char*)malloc(total_length + 1);
+    if (!buffer) {
+        return NULL;
     }
     
-    return total;
-}
-
-void text_editor_get_selection_start(const TextEditor* editor, uint16_t* line, uint16_t* column) {
-    if (line) *line = editor->selection.start_line;
-    if (column) *column = editor->selection.start_column;
-}
-
-void text_editor_get_selection_end(const TextEditor* editor, uint16_t* line, uint16_t* column) {
-    if (line) *line = editor->selection.end_line;
-    if (column) *column = editor->selection.end_column;
+    // Copy selected text
+    char* ptr = buffer;
+    
+    if (editor->selection.start_line == editor->selection.end_line) {
+        TextFieldLine* line = textfield_get_line(&editor->textfield, editor->selection.start_line);
+        if (line) {
+            memcpy(ptr, line->text + editor->selection.start_column, 
+                   editor->selection.end_column - editor->selection.start_column);
+            ptr += editor->selection.end_column - editor->selection.start_column;
+        }
+    } else {
+        // First line
+        TextFieldLine* first_line = textfield_get_line(&editor->textfield, editor->selection.start_line);
+        if (first_line) {
+            memcpy(ptr, first_line->text + editor->selection.start_column, 
+                   first_line->length - editor->selection.start_column);
+            ptr += first_line->length - editor->selection.start_column;
+        }
+        
+        // Middle lines
+        for (uint16_t i = editor->selection.start_line + 1; i < editor->selection.end_line; i++) {
+            *ptr++ = '\n';
+            TextFieldLine* line = textfield_get_line(&editor->textfield, i);
+            if (line) {
+                memcpy(ptr, line->text, line->length);
+                ptr += line->length;
+            }
+        }
+        
+        // Last line
+        if (editor->selection.end_line > editor->selection.start_line + 1) {
+            *ptr++ = '\n';
+        }
+        TextFieldLine* last_line = textfield_get_line(&editor->textfield, editor->selection.end_line);
+        if (last_line) {
+            memcpy(ptr, last_line->text, editor->selection.end_column);
+            ptr += editor->selection.end_column;
+        }
+    }
+    
+    *ptr = '\0';
+    return buffer;
 }
 
 // =============================================================================
@@ -1137,43 +469,697 @@ void text_editor_get_selection_end(const TextEditor* editor, uint16_t* line, uin
 // =============================================================================
 
 void text_editor_copy(TextEditor* editor) {
-    if (!editor->selection.active) return;
+    if (!editor) return;
     
-    text_editor_get_selected_text(editor, editor->clipboard.text, sizeof(editor->clipboard.text));
-    editor->clipboard.length = strlen(editor->clipboard.text);
-    
-    // Clear selection after copy (optional behavior)
-    // clear_selection_internal(editor);
+    char* selected = text_editor_get_selected_text(editor);
+    if (selected) {
+        clipboard_copy(selected);
+        free(selected);
+    }
 }
 
 void text_editor_cut(TextEditor* editor) {
-    if (!editor->selection.active) return;
-    if (editor->settings.read_only) return;
+    if (!editor) return;
     
     text_editor_copy(editor);
-    text_editor_delete_text(editor, 0);  // Delete selection
+    text_editor_delete_selection(editor);
 }
 
 void text_editor_paste(TextEditor* editor) {
-    if (editor->settings.read_only) return;
-    if (editor->clipboard.length == 0) return;
+    if (!editor) return;
     
-    text_editor_insert_text(editor, editor->clipboard.text, editor->clipboard.length);
+    const char* text = clipboard_paste();
+    if (text) {
+        text_editor_insert_text(editor, text);
+    }
 }
 
-void text_editor_set_clipboard(TextEditor* editor, const char* text) {
-    if (!text) {
-        editor->clipboard.length = 0;
-        editor->clipboard.text[0] = '\0';
-        return;
+// =============================================================================
+// TEXT EDITING
+// =============================================================================
+
+void text_editor_insert_char(TextEditor* editor, char c) {
+    if (!editor) return;
+    
+    // Save state for undo
+    text_editor_save_state(editor);
+    
+    // Clear selection and replace with inserted char
+    if (editor->selection.active) {
+        text_editor_delete_selection(editor);
     }
     
-    strncpy(editor->clipboard.text, text, sizeof(editor->clipboard.text) - 1);
-    editor->clipboard.text[sizeof(editor->clipboard.text) - 1] = '\0';
-    editor->clipboard.length = strlen(editor->clipboard.text);
+    TextFieldLine* line = textfield_get_line(&editor->textfield, editor->cursor.line);
+    if (!line) return;
+    
+    // Check if line is full
+    if (line->length >= TEXTFIELD_MAX_LINE_LENGTH - 1) {
+        return;  // Line full
+    }
+    
+    // Make space for new character
+    memmove(line->text + editor->cursor.column + 1, 
+            line->text + editor->cursor.column,
+            line->length - editor->cursor.column);
+    
+    // Insert character
+    line->text[editor->cursor.column] = c;
+    line->length++;
+    line->dirty = true;
+    
+    // Move cursor right
+    text_editor_cursor_right(editor);
+    
+    editor->state.dirty = true;
 }
 
-const char* text_editor_get_clipboard(const TextEditor* editor) {
-    return editor->clipboard.text;
+void text_editor_insert_text(TextEditor* editor, const char* text) {
+    if (!editor || !text) return;
+    
+    text_editor_save_state(editor);
+    
+    if (editor->selection.active) {
+        text_editor_delete_selection(editor);
+    }
+    
+    TextFieldLine* line = textfield_get_line(&editor->textfield, editor->cursor.line);
+    if (!line) return;
+    
+    size_t text_len = strlen(text);
+    size_t available = TEXTFIELD_MAX_LINE_LENGTH - line->length - 1;
+    
+    if (text_len > available) {
+        text_len = available;
+    }
+    
+    // Make space
+    memmove(line->text + editor->cursor.column + text_len,
+            line->text + editor->cursor.column,
+            line->length - editor->cursor.column);
+    
+    // Insert text
+    memcpy(line->text + editor->cursor.column, text, text_len);
+    line->length += text_len;
+    line->dirty = true;
+    
+    // Move cursor
+    editor->cursor.column += text_len;
+    text_editor_update_cursor_position(editor);
+    
+    editor->state.dirty = true;
 }
 
+void text_editor_delete_char(TextEditor* editor) {
+    if (!editor) return;
+    
+    text_editor_save_state(editor);
+    
+    TextFieldLine* line = textfield_get_line(&editor->textfield, editor->cursor.line);
+    if (!line || editor->cursor.column >= line->length) return;
+    
+    // Delete character at cursor
+    memmove(line->text + editor->cursor.column,
+            line->text + editor->cursor.column + 1,
+            line->length - editor->cursor.column - 1);
+    line->length--;
+    line->dirty = true;
+    
+    editor->state.dirty = true;
+}
+
+void text_editor_backspace(TextEditor* editor) {
+    if (!editor) return;
+    
+    text_editor_save_state(editor);
+    
+    if (editor->cursor.column > 0) {
+        text_editor_cursor_left(editor);
+        text_editor_delete_char(editor);
+    } else if (editor->cursor.line > 0) {
+        // Join with previous line
+        text_editor_cursor_up(editor);
+        text_editor_cursor_end(editor);
+        
+        TextFieldLine* current_line = textfield_get_line(&editor->textfield, editor->cursor.line);
+        TextFieldLine* next_line = textfield_get_line(&editor->textfield, editor->cursor.line + 1);
+        
+        if (current_line && next_line) {
+            size_t combined_len = current_line->length + next_line->length;
+            if (combined_len < TEXTFIELD_MAX_LINE_LENGTH) {
+                memcpy(current_line->text + current_line->length, next_line->text, next_line->length);
+                current_line->length = combined_len;
+                current_line->dirty = true;
+                
+                // Remove next line
+                textfield_remove_line(&editor->textfield, editor->cursor.line + 1);
+            }
+        }
+    }
+    
+    editor->state.dirty = true;
+}
+
+void text_editor_delete_selection(TextEditor* editor) {
+    if (!editor || !editor->selection.active) return;
+    
+    text_editor_save_state(editor);
+    
+    uint16_t start_line = editor->selection.start_line;
+    uint16_t start_col = editor->selection.start_column;
+    uint16_t end_line = editor->selection.end_line;
+    uint16_t end_col = editor->selection.end_column;
+    
+    if (start_line == end_line) {
+        // Single line selection
+        TextFieldLine* line = textfield_get_line(&editor->textfield, start_line);
+        if (line) {
+            size_t delete_len = end_col - start_col;
+            memmove(line->text + start_col,
+                    line->text + end_col,
+                    line->length - end_col);
+            line->length -= delete_len;
+            line->dirty = true;
+        }
+    } else {
+        // Multi-line selection
+        TextFieldLine* first_line = textfield_get_line(&editor->textfield, start_line);
+        TextFieldLine* last_line = textfield_get_line(&editor->textfield, end_line);
+        
+        if (first_line && last_line) {
+            // Keep text after end_col in last line
+            size_t keep_len = last_line->length - end_col;
+            
+            // Combine first line (before start_col) with last line (after end_col)
+            size_t new_len = start_col + keep_len;
+            if (new_len < TEXTFIELD_MAX_LINE_LENGTH) {
+                memmove(first_line->text + start_col,
+                        last_line->text + end_col,
+                        keep_len);
+                first_line->length = new_len;
+                first_line->dirty = true;
+            }
+            
+            // Remove middle lines
+            for (uint16_t i = start_line + 1; i <= end_line; i++) {
+                textfield_remove_line(&editor->textfield, start_line + 1);
+            }
+        }
+    }
+    
+    text_editor_clear_selection(editor);
+    text_editor_set_cursor(editor, start_line, start_col);
+    text_editor_update_cursor_position(editor);
+    
+    editor->state.dirty = true;
+}
+
+void text_editor_insert_newline(TextEditor* editor) {
+    if (!editor) return;
+    
+    text_editor_save_state(editor);
+    
+    TextFieldLine* current_line = textfield_get_line(&editor->textfield, editor->cursor.line);
+    if (!current_line) return;
+    
+    // Split current line at cursor
+    char after_cursor[TEXTFIELD_MAX_LINE_LENGTH];
+    size_t after_len = current_line->length - editor->cursor.column;
+    
+    if (after_len > 0) {
+        memcpy(after_cursor, current_line->text + editor->cursor.column, after_len);
+    }
+    
+    // Truncate current line
+    current_line->length = editor->cursor.column;
+    current_line->dirty = true;
+    
+    // Insert new line with remaining text
+    textfield_insert_line(&editor->textfield, editor->cursor.line + 1, after_cursor);
+    
+    // Move cursor to new line
+    text_editor_cursor_down(editor);
+    text_editor_cursor_home(editor);
+    
+    editor->state.dirty = true;
+}
+
+void text_editor_indent(TextEditor* editor) {
+    if (!editor) return;
+    
+    if (editor->selection.active) {
+        // Indent all selected lines
+        uint16_t start = editor->selection.start_line;
+        uint16_t end = editor->selection.end_line;
+        
+        for (uint16_t i = start; i <= end; i++) {
+            TextFieldLine* line = textfield_get_line(&editor->textfield, i);
+            if (line && line->length < TEXTFIELD_MAX_LINE_LENGTH - TEXT_EDITOR_TAB_SIZE) {
+                memmove(line->text + TEXT_EDITOR_TAB_SIZE, line->text, line->length);
+                memset(line->text, ' ', TEXT_EDITOR_TAB_SIZE);
+                line->length += TEXT_EDITOR_TAB_SIZE;
+                line->dirty = true;
+            }
+        }
+    } else {
+        // Indent current line
+        TextFieldLine* line = textfield_get_line(&editor->textfield, editor->cursor.line);
+        if (line && line->length < TEXTFIELD_MAX_LINE_LENGTH - TEXT_EDITOR_TAB_SIZE) {
+            memmove(line->text + TEXT_EDITOR_TAB_SIZE, line->text, line->length);
+            memset(line->text, ' ', TEXT_EDITOR_TAB_SIZE);
+            line->length += TEXT_EDITOR_TAB_SIZE;
+            line->dirty = true;
+            editor->cursor.column += TEXT_EDITOR_TAB_SIZE;
+        }
+    }
+    
+    editor->state.dirty = true;
+}
+
+void text_editor_unindent(TextEditor* editor) {
+    if (!editor) return;
+    
+    uint8_t tab_size = TEXT_EDITOR_TAB_SIZE;
+    
+    if (editor->selection.active) {
+        // Unindent all selected lines
+        uint16_t start = editor->selection.start_line;
+        uint16_t end = editor->selection.end_line;
+        
+        for (uint16_t i = start; i <= end; i++) {
+            TextFieldLine* line = textfield_get_line(&editor->textfield, i);
+            if (line && line->length >= tab_size) {
+                // Check if line starts with spaces/tabs
+                bool all_whitespace = true;
+                for (uint16_t j = 0; j < tab_size; j++) {
+                    if (line->text[j] != ' ' && line->text[j] != '\t') {
+                        all_whitespace = false;
+                        break;
+                    }
+                }
+                
+                if (all_whitespace) {
+                    memmove(line->text, line->text + tab_size, line->length - tab_size);
+                    line->length -= tab_size;
+                    line->dirty = true;
+                    
+                    // Adjust cursor if on this line
+                    if (i == editor->cursor.line && editor->cursor.column >= tab_size) {
+                        editor->cursor.column -= tab_size;
+                    }
+                }
+            }
+        }
+    } else {
+        // Unindent current line
+        TextFieldLine* line = textfield_get_line(&editor->textfield, editor->cursor.line);
+        if (line && line->length >= tab_size) {
+            bool all_whitespace = true;
+            for (uint16_t j = 0; j < tab_size; j++) {
+                if (line->text[j] != ' ' && line->text[j] != '\t') {
+                    all_whitespace = false;
+                    break;
+                }
+            }
+            
+            if (all_whitespace) {
+                memmove(line->text, line->text + tab_size, line->length - tab_size);
+                line->length -= tab_size;
+                line->dirty = true;
+                
+                if (editor->cursor.column >= tab_size) {
+                    editor->cursor.column -= tab_size;
+                } else {
+                    editor->cursor.column = 0;
+                }
+            }
+        }
+    }
+    
+    editor->state.dirty = true;
+}
+
+// =============================================================================
+// UNDO/REDO
+// =============================================================================
+
+void text_editor_save_state(TextEditor* editor) {
+    if (!editor) return;
+    
+    // Clear redo stack when making new changes
+    editor->history.redo_top = -1;
+    
+    // Check if we can add to history
+    if (editor->history.top >= (int8_t)TEXT_EDITOR_MAX_HISTORY - 1) {
+        // Shift history down (lose oldest)
+        for (int i = 0; i < TEXT_EDITOR_MAX_HISTORY - 1; i++) {
+            editor->history.entries[i] = editor->history.entries[i + 1];
+        }
+        editor->history.top--;
+        editor->history.current--;
+    }
+    
+    TextEditorHistoryEntry* entry = &editor->history.entries[++editor->history.top];
+    
+    // Save cursor
+    entry->cursor = editor->cursor;
+    
+    // Save selection
+    entry->selection = editor->selection;
+    
+    // Save modification info
+    entry->line = editor->cursor.line;
+    entry->column = editor->cursor.column;
+    entry->was_insert = true;  // Will be updated by specific operations
+    
+    // Note: Text buffer is saved by TextField's own state
+}
+
+void text_editor_undo(TextEditor* editor) {
+    if (!editor || editor->history.current <= -1) return;
+    
+    // For now, just restore cursor position
+    TextEditorHistoryEntry* entry = &editor->history.entries[editor->history.current];
+    editor->cursor = entry->cursor;
+    editor->selection = entry->selection;
+    text_editor_update_cursor_position(editor);
+    
+    editor->history.current--;
+    
+    if (editor->on_undo_redo) {
+        editor->on_undo_redo(editor, true);
+    }
+}
+
+void text_editor_redo(TextEditor* editor) {
+    if (!editor || editor->history.current >= editor->history.top) return;
+    
+    editor->history.current++;
+    TextEditorHistoryEntry* entry = &editor->history.entries[editor->history.current];
+    editor->cursor = entry->cursor;
+    editor->selection = entry->selection;
+    text_editor_update_cursor_position(editor);
+    
+    if (editor->on_undo_redo) {
+        editor->on_undo_redo(editor, false);
+    }
+}
+
+bool text_editor_can_undo(const TextEditor* editor) {
+    return editor && editor->history.current > -1;
+}
+
+bool text_editor_can_redo(const TextEditor* editor) {
+    return editor && editor->history.current < editor->history.top;
+}
+
+void text_editor_clear_history(TextEditor* editor) {
+    if (!editor) return;
+    editor->history.current = -1;
+    editor->history.top = -1;
+    editor->history.redo_top = -1;
+}
+
+// =============================================================================
+// INPUT HANDLING
+// =============================================================================
+
+void text_editor_handle_char(TextEditor* editor, char c, uint8_t modifiers) {
+    if (!editor) return;
+    
+    editor->state.last_activity = 0;  // Would use millis()
+    
+    switch (c) {
+        case '\n':
+            text_editor_insert_newline(editor);
+            break;
+        case '\t':
+            text_editor_indent(editor);
+            break;
+        case '\b':  // Backspace
+            text_editor_backspace(editor);
+            break;
+        case 127:    // Delete
+            text_editor_delete_char(editor);
+            break;
+        default:
+            if (isprint(c)) {
+                text_editor_insert_char(editor, c);
+            }
+            break;
+    }
+}
+
+void text_editor_handle_key(TextEditor* editor, uint8_t key) {
+    if (!editor) return;
+    
+    editor->state.last_activity = 0;
+    
+    switch (key) {
+        case KEY_UP:
+            text_editor_cursor_up(editor);
+            break;
+        case KEY_DOWN:
+            text_editor_cursor_down(editor);
+            break;
+        case KEY_LEFT:
+            text_editor_cursor_left(editor);
+            break;
+        case KEY_RIGHT:
+            text_editor_cursor_right(editor);
+            break;
+        case KEY_HOME:
+            text_editor_cursor_home(editor);
+            break;
+        case KEY_END:
+            text_editor_cursor_end(editor);
+            break;
+        case KEY_PAGE_UP:
+            text_editor_scroll_up(editor);
+            break;
+        case KEY_PAGE_DOWN:
+            text_editor_scroll_down(editor);
+            break;
+    }
+}
+
+void text_editor_handle_touch(TextEditor* editor, uint16_t x, uint16_t y, bool pressed) {
+    if (!editor) return;
+    
+    editor->state.last_activity = 0;
+    
+    if (pressed) {
+        // Calculate which line was touched
+        uint16_t first_visible = text_editor_get_first_visible_line(editor);
+        uint16_t line_height = text_editor_get_line_height(editor);
+        uint16_t relative_y = y - editor->textfield.base.y + editor->scroll.line_offset;
+        uint16_t touched_line = first_visible + (relative_y / line_height);
+        
+        touched_line = CLAMP(touched_line, 0, editor->textfield.line_count - 1);
+        
+        // Calculate column
+        uint16_t char_width = editor->textfield.settings.font_width;
+        uint16_t relative_x = x - editor->textfield.base.x;
+        uint16_t touched_column = relative_x / char_width;
+        
+        TextFieldLine* line = textfield_get_line(&editor->textfield, touched_line);
+        if (line) {
+            touched_column = CLAMP(touched_column, 0, line->length);
+        }
+        
+        if (editor->selection.active) {
+            // Extend selection
+            text_editor_set_selection(editor,
+                                     editor->selection.start_line, editor->selection.start_column,
+                                     touched_line, touched_column);
+        } else {
+            // Move cursor and start new selection
+            text_editor_set_cursor(editor, touched_line, touched_column);
+            editor->selection.start_line = touched_line;
+            editor->selection.start_column = touched_column;
+            editor->selection.active = true;
+        }
+    }
+}
+
+// =============================================================================
+// RENDERING
+// =============================================================================
+
+void text_editor_render(const TextEditor* editor) {
+    if (!editor || !editor->textfield.base.visible) return;
+    
+    // Render gutter (line numbers) if enabled
+    if (editor->editor_settings.show_line_numbers) {
+        text_editor_render_gutter(editor);
+    }
+    
+    // Render text area
+    uint16_t text_x = editor->textfield.base.x;
+    if (editor->editor_settings.show_line_numbers) {
+        text_x += TEXT_EDITOR_GUTTER_WIDTH;
+    }
+    
+    text_editor_render_text(editor, text_x, editor->textfield.base.y);
+    
+    // Render selection
+    if (editor->selection.active) {
+        text_editor_render_selection(editor);
+    }
+    
+    // Render cursor
+    if (editor->state.focused && editor->cursor.visible) {
+        text_editor_render_cursor(editor);
+    }
+}
+
+void text_editor_render_text(const TextEditor* editor, uint16_t x, uint16_t y) {
+    if (!editor) return;
+    
+    uint16_t line_height = text_editor_get_line_height(editor);
+    uint16_t first_visible = text_editor_get_first_visible_line(editor);
+    uint16_t visible_lines = text_editor_get_visible_lines(editor);
+    uint16_t char_width = editor->textfield.settings.font_width;
+    
+    // Render visible lines
+    for (uint16_t i = 0; i < visible_lines; i++) {
+        uint16_t line_index = first_visible + i;
+        if (line_index >= editor->textfield.line_count) break;
+        
+        TextFieldLine* line = textfield_get_line(&editor->textfield, line_index);
+        if (!line) continue;
+        
+        uint16_t text_y = y + i * line_height - editor->scroll.line_offset;
+        
+        // Render line text
+        renderer_draw_text(x, text_y, line->text, editor->textfield.colors.fg_color, 
+                         editor->textfield.colors.bg_color, 1);
+    }
+}
+
+void text_editor_render_cursor(const TextEditor* editor) {
+    if (!editor || !editor->cursor.visible) return;
+    
+    uint16_t char_width = editor->textfield.settings.font_width;
+    uint16_t char_height = editor->textfield.settings.font_height;
+    
+    // Draw cursor as vertical line
+    renderer_fill_rect(editor->cursor.x_pos, editor->cursor.y_pos,
+                     2, char_height, editor->textfield.colors.cursor_color);
+}
+
+void text_editor_render_selection(const TextEditor* editor) {
+    if (!editor || !editor->selection.active) return;
+    
+    uint16_t char_width = editor->textfield.settings.font_width;
+    uint16_t char_height = editor->textfield.settings.font_height;
+    uint16_t first_visible = text_editor_get_first_visible_line(editor);
+    uint16_t visible_lines = text_editor_get_visible_lines(editor);
+    
+    uint16_t start_line = editor->selection.start_line;
+    uint16_t end_line = editor->selection.end_line;
+    
+    for (uint16_t line = start_line; line <= end_line; line++) {
+        if (line < first_visible) continue;
+        if (line >= first_visible + visible_lines) break;
+        
+        TextFieldLine* line_ptr = textfield_get_line(&editor->textfield, line);
+        if (!line_ptr) continue;
+        
+        uint16_t start_col = (line == start_line) ? editor->selection.start_column : 0;
+        uint16_t end_col = (line == end_line) ? editor->selection.end_column : line_ptr->length;
+        
+        uint16_t x = editor->textfield.base.x + start_col * char_width;
+        uint16_t y = editor->textfield.base.y + (line - first_visible) * char_height - editor->scroll.line_offset;
+        uint16_t width = (end_col - start_col) * char_width;
+        
+        renderer_fill_rect(x, y, width, char_height, editor->selection.bg_color);
+        
+        // Re-render selected text
+        char temp[TEXTFIELD_MAX_LINE_LENGTH];
+        size_t len = end_col - start_col;
+        memcpy(temp, line_ptr->text + start_col, len);
+        temp[len] = '\0';
+        
+        renderer_draw_text(x, y, temp, editor->selection.fg_color, editor->selection.bg_color, 1);
+    }
+}
+
+void text_editor_render_line_numbers(const TextEditor* editor) {
+    if (!editor) return;
+    
+    uint16_t line_height = text_editor_get_line_height(editor);
+    uint16_t first_visible = text_editor_get_first_visible_line(editor);
+    uint16_t visible_lines = text_editor_get_visible_lines(editor);
+    
+    for (uint16_t i = 0; i < visible_lines; i++) {
+        uint16_t line_number = first_visible + i + 1;  // 1-based
+        uint16_t y = editor->textfield.base.y + i * line_height - editor->scroll.line_offset;
+        
+        char buffer[8];
+        snprintf(buffer, sizeof(buffer), "%u", line_number);
+        
+        renderer_draw_text(editor->textfield.base.x, y, buffer, 
+                         editor->editor_colors.line_number_color, 
+                         editor->editor_colors.gutter_bg, 1);
+    }
+}
+
+void text_editor_render_gutter(const TextEditor* editor) {
+    if (!editor) return;
+    
+    uint16_t gutter_width = TEXT_EDITOR_GUTTER_WIDTH;
+    uint16_t height = editor->textfield.base.height;
+    
+    // Draw gutter background
+    renderer_fill_rect(editor->textfield.base.x, editor->textfield.base.y,
+                     gutter_width, height, editor->editor_colors.gutter_bg);
+    
+    // Draw line numbers
+    text_editor_render_line_numbers(editor);
+}
+
+// =============================================================================
+// FOCUS MANAGEMENT
+// =============================================================================
+
+void text_editor_set_focus(TextEditor* editor, bool focused) {
+    if (!editor) return;
+    editor->state.focused = focused;
+    editor->state.needs_render = true;
+}
+
+bool text_editor_is_focused(const TextEditor* editor) {
+    return editor && editor->state.focused;
+}
+
+// =============================================================================
+// STATE MANAGEMENT
+// =============================================================================
+
+void text_editor_set_dirty(TextEditor* editor, bool dirty) {
+    if (!editor) return;
+    editor->state.dirty = dirty;
+}
+
+bool text_editor_is_dirty(const TextEditor* editor) {
+    return editor && editor->state.dirty;
+}
+
+// =============================================================================
+// CALLBACKS
+// =============================================================================
+
+void text_editor_set_on_cursor_move(TextEditor* editor, void (*callback)(TextEditor*)) {
+    if (!editor) return;
+    editor->on_cursor_move = callback;
+}
+
+void text_editor_set_on_selection_change(TextEditor* editor, void (*callback)(TextEditor*)) {
+    if (!editor) return;
+    editor->on_selection_change = callback;
+}
+
+void text_editor_set_on_undo_redo(TextEditor* editor, void (*callback)(TextEditor*, bool)) {
+    if (!editor) return;
+    editor->on_undo_redo = callback;
+}
