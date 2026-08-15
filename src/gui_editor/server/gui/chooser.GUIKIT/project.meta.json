@@ -1,0 +1,12 @@
+{
+  "name": "chooser",
+  "description": "GUIKit Project Chooser - Lists all available projects and allows selection",
+  "author": "GUIKit System",
+  "version": "1.0.0",
+  "created": "2026-08-15T00:00:00Z",
+  "modified": "2026-08-15T00:00:00Z",
+  "gui_files": ["main_gui.json"],
+  "dependencies": [],
+  "type": "system",
+  "purpose": "Project launcher/chooser GUI"
+}

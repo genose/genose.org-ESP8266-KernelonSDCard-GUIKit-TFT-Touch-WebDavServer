@@ -1,0 +1,132 @@
+/**
+ * GUIKit Chooser Theme
+ * Dark theme optimized for TFT displays
+ */
+
+/* Base styles for chooser GUI */
+.chooser {
+    background: #1E1E1E;
+    color: #D4D4D4;
+    font-family: sans-serif;
+}
+
+/* Title bar */
+#title_bar {
+    background: linear-gradient(180deg, #0078D4 0%, #005A9E 100%);
+    border-bottom: 1px solid #004A8E;
+}
+
+#title {
+    font-size: 16px;
+    font-weight: bold;
+    color: #FFFFFF;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+#default_indicator {
+    font-size: 12px;
+    color: #B0B0B0;
+}
+
+/* Projects container */
+#projects_container {
+    background: #252526;
+    border: 1px solid #3E3E42;
+}
+
+/* Project buttons */
+button[action="select_project"] {
+    background: #2D2D2D;
+    border: 1px solid #3E3E42;
+    color: #D4D4D4;
+    text-align: left;
+    padding-left: 10px;
+    transition: background-color 0.2s, border-color 0.2s;
+}
+
+button[action="select_project"]:hover {
+    background: #3E3E42;
+    border-color: #5A5A5A;
+}
+
+button[action="select_project"].selected {
+    background: #0078D4;
+    border-color: #005A9E;
+    color: #FFFFFF;
+}
+
+/* Default project marker (star) */
+button[action="select_project"]:contains("★") {
+    color: #FFD700;
+}
+
+button[action="select_project"].selected:contains("★") {
+    color: #FFFFFF;
+}
+
+/* Action buttons */
+#load_btn {
+    background: #0078D4;
+    border: 1px solid #005A9E;
+    color: #FFFFFF;
+    font-weight: bold;
+}
+
+#load_btn:hover {
+    background: #006AB8;
+}
+
+#load_btn:disabled {
+    background: #4A4A4A;
+    border-color: #3A3A3A;
+    color: #6A6A6A;
+}
+
+#set_default_btn {
+    background: #2D2D2D;
+    border: 1px solid #3E3E42;
+    color: #D4D4D4;
+}
+
+#set_default_btn:hover {
+    background: #3E3E42;
+    border-color: #5A5A5A;
+}
+
+#set_default_btn:disabled {
+    background: #252526;
+    border-color: #252526;
+    color: #5A5A5A;
+}
+
+/* Refresh button */
+#refresh_btn {
+    background: #2D2D2D;
+    border: 1px solid #3E3E42;
+    color: #D4D4D4;
+}
+
+#refresh_btn:hover {
+    background: #3E3E42;
+    border-color: #5A5A5A;
+}
+
+/* Info bar */
+#info_bar {
+    background: #2D2D2D;
+    border-top: 1px solid #3E3E42;
+}
+
+#info_text {
+    color: #858585;
+    font-size: 12px;
+}
+
+/* Scrollable area styling */
+#projects_container.scrollable {
+    overflow-y: auto;
+}
+
+#projects_list {
+    min-height: 100%;
+}

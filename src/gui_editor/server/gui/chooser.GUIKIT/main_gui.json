@@ -1,0 +1,155 @@
+{
+  "version": "1.0",
+  "name": "GUIKit Project Chooser",
+  "size": {
+    "width": 320,
+    "height": 240
+  },
+  "background": "#1E1E1E",
+  "widgets": [
+    {
+      "id": "title_bar",
+      "type": "view",
+      "x": 0,
+      "y": 0,
+      "width": 320,
+      "height": 30,
+      "background": "#0078D4",
+      "border_color": "#005A9E",
+      "border_width": 1,
+      "children": [
+        {
+          "id": "title",
+          "type": "label",
+          "x": 10,
+          "y": 5,
+          "width": 200,
+          "height": 20,
+          "text": "GUIKit Project Chooser",
+          "text_color": "#FFFFFF",
+          "text_size": 16,
+          "text_align": "left",
+          "font": "bold"
+        },
+        {
+          "id": "default_indicator",
+          "type": "label",
+          "x": 220,
+          "y": 7,
+          "width": 90,
+          "height": 16,
+          "text": "Default: NONE",
+          "text_color": "#D4D4D4",
+          "text_size": 12,
+          "text_align": "right",
+          "font": "regular"
+        }
+      ]
+    },
+    {
+      "id": "refresh_btn",
+      "type": "button",
+      "x": 240,
+      "y": 35,
+      "width": 70,
+      "height": 25,
+      "text": "🔄 Refresh",
+      "text_color": "#FFFFFF",
+      "background": "#2D2D2D",
+      "border_color": "#3E3E42",
+      "border_width": 1,
+      "text_size": 12,
+      "action": "refresh_projects"
+    },
+    {
+      "id": "projects_container",
+      "type": "view",
+      "x": 10,
+      "y": 35,
+      "width": 230,
+      "height": 170,
+      "background": "#252526",
+      "border_color": "#3E3E42",
+      "border_width": 1,
+      "scrollable": 3,
+      "children": [
+        {
+          "id": "projects_list",
+          "type": "view",
+          "x": 0,
+          "y": 0,
+          "width": 230,
+          "height": 500,
+          "background": "#252526",
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "info_bar",
+      "type": "view",
+      "x": 0,
+      "y": 210,
+      "width": 320,
+      "height": 25,
+      "background": "#2D2D2D",
+      "border_color": "#3E3E42",
+      "border_width": 1,
+      "children": [
+        {
+          "id": "info_text",
+          "type": "label",
+          "x": 10,
+          "y": 3,
+          "width": 300,
+          "height": 19,
+          "text": "Select a project to load",
+          "text_color": "#858585",
+          "text_size": 12,
+          "text_align": "left"
+        }
+      ]
+    },
+    {
+      "id": "load_btn",
+      "type": "button",
+      "x": 240,
+      "y": 180,
+      "width": 70,
+      "height": 25,
+      "text": "Load",
+      "text_color": "#FFFFFF",
+      "background": "#0078D4",
+      "border_color": "#005A9E",
+      "border_width": 1,
+      "text_size": 12,
+      "action": "load_selected_project",
+      "disabled": true
+    },
+    {
+      "id": "set_default_btn",
+      "type": "button",
+      "x": 240,
+      "y": 150,
+      "width": 70,
+      "height": 25,
+      "text": "Set Default",
+      "text_color": "#FFFFFF",
+      "background": "#2D2D2D",
+      "border_color": "#3E3E42",
+      "border_width": 1,
+      "text_size": 10,
+      "action": "set_as_default",
+      "disabled": true
+    }
+  ],
+  "scripts": {
+    "on_init": "init_chooser()",
+    "on_show": "refresh_projects()"
+  },
+  "metadata": {
+    "system_gui": true,
+    "purpose": "project_chooser",
+    "version": "1.0.0"
+  }
+}
