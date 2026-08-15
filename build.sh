@@ -59,10 +59,11 @@ SKIP_CLEAN=false
 SERIAL_PORT=""
 SDCARD_PATH="$PROJECT_DIR/sdcard"
 TARGET="all"
+PLATFORM="esp8266"  # Default platform: esp8266 or esp32
 
-# PlatformIO environments
-BOOTLOADER_ENV="bootloader"
-KERNEL_ENV="kernel"
+# PlatformIO environments (platform-specific)
+BOOTLOADER_ENV="${PLATFORM}_bootloader"
+KERNEL_ENV="${PLATFORM}_kernel"
 
 # Colors for output
 RED='\033[0;31m'
@@ -98,14 +99,17 @@ OPTIONS:
   --port PORT    Specify serial port (e.g., /dev/ttyUSB0, COM3)
   --sd PATH      Specify SD card mount point (default: ./sdcard)
   --no-clean     Skip cleanup before build
+  --platform PLATFORM  Specify target platform: esp8266 or esp32 (default: esp8266)
   --help, -h    Show this help message
   --version, -v Show version information
 
 EXAMPLES:
-  $(basename "$0") all                              # Build everything
+  $(basename "$0") all                              # Build everything for ESP8266
+  $(basename "$0") all --platform esp32             # Build everything for ESP32
   $(basename "$0") bootloader --upload --port /dev/ttyUSB0  # Build & upload bootloader
   $(basename "$0") sdcard --sd /Volumes/SDCARD      # Prepare real SD card
   $(basename "$0") kernel --debug                   # Build with debug
+  $(basename "$0") kernel --platform esp32         # Build kernel for ESP32
   $(basename "$0") clean                            # Clean all artifacts
 
 BUILD PROCESS:
@@ -196,6 +200,19 @@ parse_args() {
             --no-clean)
                 SKIP_CLEAN=true
                 shift
+                ;;
+            --platform)
+                PLATFORM="$2"
+                # Validate platform
+                if [ "$PLATFORM" != "esp8266" ] && [ "$PLATFORM" != "esp32" ]; then
+                    log_error "Invalid platform: $PLATFORM. Must be 'esp8266' or 'esp32'"
+                    show_help
+                    exit 1
+                fi
+                # Update PlatformIO environments based on platform
+                BOOTLOADER_ENV="${PLATFORM}_bootloader"
+                KERNEL_ENV="${PLATFORM}_kernel"
+                shift 2
                 ;;
             --help|-h)
                 show_help

@@ -884,6 +884,87 @@ WebDAVManager.browse();
 
 ---
 
+## 🎮 Multi-Platform Support
+
+### ESP32 Support Added
+
+The project now supports **both ESP8266 and ESP32** with a unified codebase using preprocessor directives for platform-specific code.
+
+#### Platform-Specific Features
+
+| Feature | ESP8266 | ESP32 |
+|---------|---------|-------|
+| Internal RAM | ~80KB | ~320KB |
+| PSRAM Support | ❌ No | ✅ Yes (8MB+) |
+| SPI Speed | 20MHz max | 40MHz+ |
+| Dual Core | ❌ No | ✅ Yes |
+| Bluetooth | ❌ No | ✅ Yes |
+| WiFi | ✅ Yes | ✅ Yes (faster) |
+
+#### Build Commands
+
+```bash
+# ESP8266 (default)
+make all
+pio run -e esp8266_default
+
+# ESP32
+make all PLATFORM=esp32
+pio run -e esp32_default
+
+# ESP32 with PSRAM
+pio run -e esp32_psram
+```
+
+#### Platform Detection
+
+The bootloader detects the MCU platform at **compile time** using preprocessor definitions:
+
+```c
+#ifdef ESP8266
+    // ESP8266-specific code
+    #define GUIKIT_PLATFORM_ESP8266 1
+#elif ESP32
+    // ESP32-specific code
+    #define GUIKIT_PLATFORM_ESP32 1
+#endif
+```
+
+The same source code compiles for both platforms with appropriate configurations.
+
+#### Flash Layout Differences
+
+**ESP8266 (4MB Flash):**
+- 0x00000-0x01000: Bootloader (4KB)
+- 0x01000-0x10000: User Code (60KB)
+- 0x10000-0x11000: Config Partition (4KB)
+- 0x11000+: SPIFFS (~3.8MB)
+
+**ESP32 (8MB Flash):**
+- 0x00000-0x01000: Bootloader (4KB)
+- 0x01000-0x08000: Partition Table + NVS (48KB)
+- 0x08000-0x09000: Phy_init (4KB)
+- 0x09000-0x10000: Reserved (28KB)
+- 0x10000-0x11000: Config Partition (4KB)
+- 0x11000-0x20000: Kernel Partition (64KB)
+- 0x20000+: Storage (~7.8MB)
+
+### Config Partition
+
+A dedicated 4KB partition at address `0x10000` stores:
+- Hardware detection results
+- Memory strategy configuration
+- Boot information (boot count, last error)
+- User preferences
+
+This allows the system to persist configuration across reboots.
+
+### TFT Error Display
+
+If the bootloader detects an unsupported MCU or configuration error, it attempts to display an error message on the TFT for debugging.
+
+---
+
 ## 🙏 Acknowledgments
 
 - [TFT_eSPI](https://github.com/Bodmer/TFT_eSPI) - TFT display library

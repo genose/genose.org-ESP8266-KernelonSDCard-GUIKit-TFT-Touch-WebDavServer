@@ -1064,9 +1064,61 @@ bool guikit_bootloader_run(BootloaderState* state) {
     memset(&state->hardware, 0, sizeof(BootHardwareInfo));
     
     // ---------------------------------------------------------------------------
+    // Step 0: MCU Platform Detection and Validation
+    // ---------------------------------------------------------------------------
+    printf("[BOOT] Step 0/7: MCU Platform Detection\n");
+    state->current_state = BOOT_STATE_INIT;
+    
+    // Detect platform at compile time
+    #if defined(ESP8266) || GUIKIT_PLATFORM_ESP8266
+        state->config.is_esp8266 = true;
+        state->config.is_esp32 = false;
+        printf("[BOOT] Platform: ESP8266 (compile-time detected)\n");
+    #elif defined(ESP32) || GUIKIT_PLATFORM_ESP32
+        state->config.is_esp8266 = false;
+        state->config.is_esp32 = true;
+        printf("[BOOT] Platform: ESP32 (compile-time detected)\n");
+    #else
+        // Unsupported platform - display error on TFT if available
+        state->config.is_esp8266 = false;
+        state->config.is_esp32 = false;
+        printf("[BOOT] ERROR: Unsupported MCU platform\n");
+        
+        // Try to display error on TFT if already initialized
+        // Note: TFT might not be initialized yet, so we need a low-level method
+        state->current_state = BOOT_STATE_ERROR;
+        state->error_message = "Unsupported MCU platform";
+        
+        // If we have TFT CS pin from config, try to initialize TFT for error display
+        if (state->config.display.width > 0 && state->config.display.height > 0) {
+            TFT_ST7789* tft = nullptr;
+            // Try common TFT CS pins
+            for (uint8_t cs = 0; cs <= 16; cs++) {
+                if (tft_init(&tft, cs, state->config.display.width, state->config.display.height)) {
+                    // Clear screen with error color
+                    tft_clear(tft, BOOTLOADER_ERROR_COLOR);
+                    
+                    // Display error message
+                    tft_draw_text(tft, 10, 10, "GUIKit Boot Error", BOOTLOADER_BG_COLOR, BOOTLOADER_ERROR_COLOR);
+                    tft_draw_text(tft, 10, 30, "Unsupported MCU", BOOTLOADER_BG_COLOR, BOOTLOADER_ERROR_COLOR);
+                    tft_draw_text(tft, 10, 50, "Platform: Unknown", BOOTLOADER_BG_COLOR, BOOTLOADER_ERROR_COLOR);
+                    
+                    // Pause to allow reading
+                    // In real code: delay(5000);
+                    break;
+                }
+            }
+        }
+        
+        return false;
+    #endif
+    
+    printf("\n");
+    
+    // ---------------------------------------------------------------------------
     // Step 1: Hardware Detection
     // ---------------------------------------------------------------------------
-    printf("[BOOT] Step 1/6: Hardware Detection\n");
+    printf("[BOOT] Step 1/7: Hardware Detection\n");
     state->current_state = BOOT_STATE_HARDWARE_DETECTION;
     
     // Set platform info
@@ -1096,7 +1148,7 @@ bool guikit_bootloader_run(BootloaderState* state) {
     // ---------------------------------------------------------------------------
     // Step 2: RAM Initialization
     // ---------------------------------------------------------------------------
-    printf("[BOOT] Step 2/6: RAM Initialization\n");
+    printf("[BOOT] Step 2/7: RAM Initialization\n");
     state->current_state = BOOT_STATE_RAM_INITIALIZATION;
     
     if (!init_ram(state)) {

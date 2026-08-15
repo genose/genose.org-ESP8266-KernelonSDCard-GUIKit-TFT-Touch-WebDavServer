@@ -39,8 +39,9 @@
 # Configuration
 BUILD_SCRIPT := ./build.sh
 SDK_PATH ?= ./sdcard
-BOOTLOADER_ENV ?= bootloader
-KERNEL_ENV ?= kernel
+PLATFORM ?= esp8266
+BOOTLOADER_ENV ?= $(PLATFORM)_bootloader
+KERNEL_ENV ?= $(PLATFORM)_kernel
 
 # Default target
 .PHONY: default all
@@ -72,10 +73,13 @@ help:
 	@echo "  UPLOAD=1      Upload after build"
 	@echo "  PORT=path     Specify serial port (e.g., /dev/ttyUSB0)"
 	@echo "  SDCARD=path   Specify SD card mount point"
+	@echo "  PLATFORM=p    Target platform: esp8266 or esp32 (default: esp8266)"
 	@echo ""
 	@echo "EXAMPLES:"
 	@echo "  make all"
+	@echo "  make all PLATFORM=esp32"
 	@echo "  make bootloader UPLOAD=1 PORT=/dev/ttyUSB0"
+	@echo "  make bootloader PLATFORM=esp32 UPLOAD=1"
 	@echo "  make sdcard SDCARD=/Volumes/SDCARD"
 	@echo "  make clean"
 
@@ -86,6 +90,18 @@ help:
 .PHONY: version
 version:
 	@./build.sh version
+
+# ============================================================================
+# Platform-Specific Targets
+# ============================================================================
+
+.PHONY: esp8266
+esp8266:
+	@$(MAKE) all PLATFORM=esp8266
+
+.PHONY: esp32
+esp32:
+	@$(MAKE) all PLATFORM=esp32
 
 # ============================================================================
 # Build Targets
