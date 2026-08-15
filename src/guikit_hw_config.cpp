@@ -338,34 +338,47 @@ bool guikit_memory_strategy_should_use_internal_ram(const memory_strategy_config
     return gui_size <= cfg->internal_ram_max_size;
 }
 
+/**
+ * Select memory strategy based on GUI size and configuration
+ * 
+ * Strategy (STOP at first success):
+ * 1. Try External RAM: if (available AND use_by_default AND can_use) => return EXTERNAL_RAM (STOP)
+ * 2. Try SD Card Swap: if (available AND use_by_default AND can_use) => return SD_SWAP (STOP)
+ * 3. Try Internal RAM: if (can_use) => return INTERNAL_RAM (STOP)
+ * 4. Return FAILED
+ * 
+ * @param cfg Memory strategy configuration
+ * @param gui_size Size of GUI in bytes
+ * @param sram_available true if external RAM is available
+ * @param sdcard_available true if SD card is available
+ * @return MemoryStrategyLevel to use
+ */
 MemoryStrategyLevel guikit_memory_strategy_select(const memory_strategy_config_t* cfg,
                                                     uint32_t gui_size, 
                                                     bool sram_available, 
                                                     bool sdcard_available) {
     if (!cfg) return MEMORY_STRATEGY_FAILED;
     
-    // Priority 1: External RAM (if available and GUI is large enough)
-    if (sram_available && cfg->use_external_ram_by_default &&
-        gui_size >= cfg->external_ram_min_size) {
+    // STRATEGY 1: Try External RAM first -> if success STOP
+    if (sram_available && cfg->use_external_ram_by_default) {
         if (guikit_memory_strategy_should_use_external_ram(cfg, gui_size)) {
-            return MEMORY_STRATEGY_EXTERNAL_RAM;
+            return MEMORY_STRATEGY_EXTERNAL_RAM;  // SUCCESS, STOP
         }
     }
     
-    // Priority 2: SD Card Swap (if SD card available and GUI is large)
-    if (sdcard_available && cfg->use_sd_swap_by_default &&
-        gui_size >= cfg->sd_swap_min_size) {
+    // STRATEGY 2: Try SD Card Swap -> if success STOP
+    if (sdcard_available && cfg->use_sd_swap_by_default) {
         if (guikit_memory_strategy_should_use_sd_swap(cfg, gui_size)) {
-            return MEMORY_STRATEGY_SD_SWAP;
+            return MEMORY_STRATEGY_SD_SWAP;  // SUCCESS, STOP
         }
     }
     
-    // Priority 3: Internal RAM (if GUI is small enough)
+    // STRATEGY 3: Try Internal RAM -> if success STOP
     if (guikit_memory_strategy_should_use_internal_ram(cfg, gui_size)) {
-        return MEMORY_STRATEGY_INTERNAL_RAM;
+        return MEMORY_STRATEGY_INTERNAL_RAM;  // SUCCESS, STOP
     }
     
-    // If we get here, all strategies failed
+    // All strategies failed
     return MEMORY_STRATEGY_FAILED;
 }
 

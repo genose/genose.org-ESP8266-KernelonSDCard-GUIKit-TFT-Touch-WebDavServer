@@ -561,6 +561,12 @@ static bool init_tft(BootloaderState* state) {
 
 /**
  * Test memory strategy with sample GUI sizes
+ * 
+ * Demonstrates the STOP-at-first-success behavior:
+ * 1. Try External RAM -> if success STOP
+ * 2. Try SD Card Swap -> if success STOP  
+ * 3. Try Internal RAM -> if success STOP
+ * 4. Else FAILED
  */
 static void test_memory_strategy(BootloaderState* state) {
     BootHardwareInfo* hw = &state->hardware;
@@ -588,6 +594,13 @@ static void test_memory_strategy(BootloaderState* state) {
     bool sram_avail = hw->sram_detected || hw->psram_detected;
     bool sdcard_avail = hw->sdcard_detected;
     
+    printf("  Strategy Decision Flow (STOP at first success):\n");
+    printf("  1. Try External RAM -> if (avail AND fits AND can_use) => SELECT & STOP\n");
+    printf("  2. Try SD Card Swap -> if (avail AND fits AND can_use) => SELECT & STOP\n");
+    printf("  3. Try Internal RAM -> if (fits AND can_use) => SELECT & STOP\n");
+    printf("  4. Else => FAILED\n");
+    printf("\n");
+    
     for (int i = 0; i < sizeof(test_sizes) / sizeof(test_sizes[0]); i++) {
         uint32_t gui_size = test_sizes[i];
         MemoryStrategyLevel strategy = guikit_memory_strategy_select(
@@ -602,7 +615,8 @@ static void test_memory_strategy(BootloaderState* state) {
             case MEMORY_STRATEGY_FAILED: strategy_name = "FAILED"; break;
         }
         
-        printf("  GUI Size: %5lu KB -> Strategy: %s\n", gui_size / 1024, strategy_name);
+        printf("  GUI Size: %5lu KB -> Strategy: %s [STOP]\n", 
+               gui_size / 1024, strategy_name);
         
         // If this is the first test, save it as the selected strategy
         if (i == 0) {

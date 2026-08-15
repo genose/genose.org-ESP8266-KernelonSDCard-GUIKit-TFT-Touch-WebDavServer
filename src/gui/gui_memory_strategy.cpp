@@ -147,6 +147,18 @@ void gui_memory_strategy_init_legacy(SPISRAM* sram, SDCard* sdcard, TFT_ST7789* 
     gui_memory_strategy_init(sram, sdcard, tft, nullptr);
 }
 
+/**
+ * Load GUI using memory strategy
+ * 
+ * Strategy (STOP at first success):
+ * 1. Try External RAM -> if SUCCESS, return result (STOP)
+ * 2. Try SD Card Swap -> if SUCCESS, return result (STOP)
+ * 3. Try Internal RAM -> if SUCCESS, return result (STOP)
+ * 4. Return FAILED
+ * 
+ * @param filepath Path to GUI JSON file
+ * @return MemoryStrategyResult with loading information
+ */
 MemoryStrategyResult gui_memory_strategy_load(const char* filepath) {
     if (!filepath) {
         return create_error_result(MEMORY_STRATEGY_FAILED, "Invalid filepath");
@@ -158,50 +170,76 @@ MemoryStrategyResult gui_memory_strategy_load(const char* filepath) {
         return create_error_result(MEMORY_STRATEGY_FAILED, "Cannot determine GUI size");
     }
     
-    // Select strategy
     bool sram_avail = (strategy_sram != nullptr);
     bool sdcard_avail = (strategy_sdcard != nullptr && strategy_sdcard->isPresent());
     
-    MemoryStrategyLevel level = gui_memory_strategy_select(gui_size, sram_avail, sdcard_avail);
-    
-    // Try strategies in order
-    MemoryStrategyResult result;
-    
-    switch (level) {
-        case MEMORY_STRATEGY_EXTERNAL_RAM:
-            result = gui_memory_strategy_external_ram(filepath);
+    // ============================================================
+    // STRATEGY 1: Try External RAM first
+    // If it works, return immediately (STOP)
+    // ============================================================
+    if (sram_avail && strategy_config.use_external_ram_by_default) {
+        if (gui_memory_strategy_can_use_external_ram(gui_size)) {
+            MemoryStrategyResult result = gui_memory_strategy_external_ram(filepath);
             if (result.success) {
                 current_strategy = MEMORY_STRATEGY_EXTERNAL_RAM;
                 gui_loaded = true;
-                return result;
+                printf("[MEM_STRAT] External RAM selected (STOP)\n");
+                return result;  // SUCCESS, STOP here
             }
-            // Fall through to next strategy
-            
-        case MEMORY_STRATEGY_SD_SWAP:
-            result = gui_memory_strategy_sd_swap(filepath);
+        }
+    }
+    
+    // ============================================================
+    // STRATEGY 2: Try SD Card Swap
+    // Only reached if External RAM failed or unavailable
+    // If it works, return immediately (STOP)
+    // ============================================================
+    if (sdcard_avail && strategy_config.use_sd_swap_by_default) {
+        if (gui_memory_strategy_can_use_sd_swap(gui_size)) {
+            MemoryStrategyResult result = gui_memory_strategy_sd_swap(filepath);
             if (result.success) {
                 current_strategy = MEMORY_STRATEGY_SD_SWAP;
                 gui_loaded = true;
-                return result;
+                printf("[MEM_STRAT] SD Card Swap selected (STOP)\n");
+                return result;  // SUCCESS, STOP here
             }
-            // Fall through to next strategy
-            
-        case MEMORY_STRATEGY_INTERNAL_RAM:
-            result = gui_memory_strategy_internal_ram(filepath);
-            if (result.success) {
-                current_strategy = MEMORY_STRATEGY_INTERNAL_RAM;
-                gui_loaded = true;
-                return result;
-            }
-            return create_error_result(MEMORY_STRATEGY_FAILED, 
-                                        "All memory strategies failed");
-            
-        default:
-            return create_error_result(MEMORY_STRATEGY_FAILED, 
-                                        "No valid memory strategy available");
+        }
     }
+    
+    // ============================================================
+    // STRATEGY 3: Try Internal RAM
+    // Only reached if both External RAM and SD Swap failed
+    // If it works, return immediately (STOP)
+    // ============================================================
+    if (gui_memory_strategy_can_use_internal_ram(gui_size)) {
+        MemoryStrategyResult result = gui_memory_strategy_internal_ram(filepath);
+        if (result.success) {
+            current_strategy = MEMORY_STRATEGY_INTERNAL_RAM;
+            gui_loaded = true;
+            printf("[MEM_STRAT] Internal RAM selected (STOP)\n");
+            return result;  // SUCCESS, STOP here
+        }
+    }
+    
+    // ============================================================
+    // All strategies failed
+    // ============================================================
+    return create_error_result(MEMORY_STRATEGY_FAILED, 
+                                "All memory strategies failed");
 }
 
+/**
+ * Load GUI from JSON string using memory strategy
+ * 
+ * Strategy (STOP at first success):
+ * 1. Try External RAM -> if SUCCESS, return result (STOP)
+ * 2. Try SD Card Swap -> if SUCCESS, return result (STOP)
+ * 3. Try Internal RAM -> if SUCCESS, return result (STOP)
+ * 4. Return FAILED
+ * 
+ * @param json GUI JSON string
+ * @return MemoryStrategyResult with loading information
+ */
 MemoryStrategyResult gui_memory_strategy_load_json(const char* json) {
     if (!json) {
         return create_error_result(MEMORY_STRATEGY_FAILED, "Invalid JSON");
@@ -211,39 +249,54 @@ MemoryStrategyResult gui_memory_strategy_load_json(const char* json) {
     bool sram_avail = (strategy_sram != nullptr);
     bool sdcard_avail = (strategy_sdcard != nullptr && strategy_sdcard->isPresent());
     
-    MemoryStrategyLevel level = gui_memory_strategy_select(gui_size, sram_avail, sdcard_avail);
-    
-    MemoryStrategyResult result;
-    
-    switch (level) {
-        case MEMORY_STRATEGY_EXTERNAL_RAM:
-            result = gui_memory_strategy_external_ram_json(json);
+    // ============================================================
+    // STRATEGY 1: Try External RAM first
+    // ============================================================
+    if (sram_avail && strategy_config.use_external_ram_by_default) {
+        if (gui_memory_strategy_can_use_external_ram(gui_size)) {
+            MemoryStrategyResult result = gui_memory_strategy_external_ram_json(json);
             if (result.success) {
                 current_strategy = MEMORY_STRATEGY_EXTERNAL_RAM;
                 gui_loaded = true;
-                return result;
+                printf("[MEM_STRAT] External RAM selected (STOP)\n");
+                return result;  // SUCCESS, STOP
             }
-            
-        case MEMORY_STRATEGY_SD_SWAP:
-            result = gui_memory_strategy_sd_swap_json(json);
+        }
+    }
+    
+    // ============================================================
+    // STRATEGY 2: Try SD Card Swap
+    // ============================================================
+    if (sdcard_avail && strategy_config.use_sd_swap_by_default) {
+        if (gui_memory_strategy_can_use_sd_swap(gui_size)) {
+            MemoryStrategyResult result = gui_memory_strategy_sd_swap_json(json);
             if (result.success) {
                 current_strategy = MEMORY_STRATEGY_SD_SWAP;
                 gui_loaded = true;
-                return result;
+                printf("[MEM_STRAT] SD Card Swap selected (STOP)\n");
+                return result;  // SUCCESS, STOP
             }
-            
-        case MEMORY_STRATEGY_INTERNAL_RAM:
-            result = gui_memory_strategy_internal_ram_json(json);
-            if (result.success) {
-                current_strategy = MEMORY_STRATEGY_INTERNAL_RAM;
-                gui_loaded = true;
-                return result;
-            }
-            
-        default:
-            return create_error_result(MEMORY_STRATEGY_FAILED, 
-                                        "All memory strategies failed");
+        }
     }
+    
+    // ============================================================
+    // STRATEGY 3: Try Internal RAM
+    // ============================================================
+    if (gui_memory_strategy_can_use_internal_ram(gui_size)) {
+        MemoryStrategyResult result = gui_memory_strategy_internal_ram_json(json);
+        if (result.success) {
+            current_strategy = MEMORY_STRATEGY_INTERNAL_RAM;
+            gui_loaded = true;
+            printf("[MEM_STRAT] Internal RAM selected (STOP)\n");
+            return result;  // SUCCESS, STOP
+        }
+    }
+    
+    // ============================================================
+    // All strategies failed
+    // ============================================================
+    return create_error_result(MEMORY_STRATEGY_FAILED, 
+                                "All memory strategies failed");
 }
 
 MemoryStrategyResult gui_memory_strategy_load_webdav(const char* filename) {
@@ -268,48 +321,101 @@ MemoryStrategyResult gui_memory_strategy_load_webdav(const char* filename) {
 // Strategy Selection
 // ============================================================================
 
+/**
+ * Select memory strategy based on availability and GUI size
+ * 
+ * Strategy (STOP at first success):
+ * 1. If External RAM available AND GUI fits -> Use External RAM (STOP)
+ * 2. Else if SD Card available AND GUI fits -> Use SD Card Swap (STOP)
+ * 3. Else if GUI fits in internal RAM -> Use Internal RAM (STOP)
+ * 4. Else -> FAILED
+ * 
+ * @param gui_size Size of GUI in bytes
+ * @param sram_available true if external RAM is available
+ * @param sdcard_available true if SD card is available
+ * @return MemoryStrategyLevel to use
+ */
 MemoryStrategyLevel gui_memory_strategy_select(uint32_t gui_size, 
                                                 bool sram_available, 
                                                 bool sdcard_available) {
-    // Priority 1: External RAM (if available and GUI is large enough)
-    if (sram_available && gui_size >= strategy_config.external_ram_min_size) {
-        if (strategy_config.use_external_ram_by_default && 
-            gui_memory_strategy_can_use_external_ram(gui_size)) {
-            return MEMORY_STRATEGY_EXTERNAL_RAM;
+    // Strategy: Try External RAM first -> if success STOP
+    if (sram_available && strategy_config.use_external_ram_by_default) {
+        if (gui_memory_strategy_can_use_external_ram(gui_size)) {
+            return MEMORY_STRATEGY_EXTERNAL_RAM;  // SUCCESS, STOP
         }
     }
     
-    // Priority 2: SD Card Swap (if SD card available and GUI is large)
-    if (sdcard_available && gui_size >= strategy_config.sd_swap_min_size) {
-        if (strategy_config.use_sd_swap_by_default && 
-            gui_memory_strategy_can_use_sd_swap(gui_size)) {
-            return MEMORY_STRATEGY_SD_SWAP;
+    // Strategy: Try SD Card Swap -> if success STOP
+    if (sdcard_available && strategy_config.use_sd_swap_by_default) {
+        if (gui_memory_strategy_can_use_sd_swap(gui_size)) {
+            return MEMORY_STRATEGY_SD_SWAP;  // SUCCESS, STOP
         }
     }
     
-    // Priority 3: Internal RAM (if GUI is small enough)
+    // Strategy: Try Internal RAM -> if success STOP
     if (gui_memory_strategy_can_use_internal_ram(gui_size)) {
-        return MEMORY_STRATEGY_INTERNAL_RAM;
+        return MEMORY_STRATEGY_INTERNAL_RAM;  // SUCCESS, STOP
     }
     
-    // If we get here, all strategies failed
+    // All strategies failed
     return MEMORY_STRATEGY_FAILED;
 }
 
+/**
+ * Check if External RAM can be used for this GUI
+ * This is the FIRST strategy - if it works, we STOP here
+ * 
+ * @param gui_size Size of GUI in bytes
+ * @return true if External RAM can hold the GUI
+ */
 bool gui_memory_strategy_can_use_external_ram(uint32_t gui_size) {
+    // External RAM must be available
     if (!strategy_sram) return false;
-    return gui_size <= strategy_config.external_ram_max_size &&
-           gui_external_ram_has_space(strategy_sram, gui_size);
+    
+    // GUI must fit in external RAM
+    if (gui_size > strategy_config.external_ram_max_size) return false;
+    
+    // External RAM must have space
+    if (!gui_external_ram_has_space(strategy_sram, gui_size)) return false;
+    
+    // GUI must meet minimum size threshold (if configured)
+    if (gui_size < strategy_config.external_ram_min_size) return false;
+    
+    return true;  // External RAM CAN be used, STOP here
 }
 
+/**
+ * Check if SD Card Swap can be used for this GUI
+ * This is the SECOND strategy - only tried if External RAM fails
+ * 
+ * @param gui_size Size of GUI in bytes
+ * @return true if SD Card Swap can handle the GUI
+ */
 bool gui_memory_strategy_can_use_sd_swap(uint32_t gui_size) {
+    // SD Card must be available
     if (!strategy_sdcard || !strategy_sdcard->isPresent()) return false;
-    return gui_size > 0;  // Any size can use SD swap
+    
+    // GUI must meet minimum size threshold for SD swap
+    if (gui_size < strategy_config.sd_swap_min_size) return false;
+    
+    return true;  // SD Card Swap CAN be used, STOP here
 }
 
+/**
+ * Check if Internal RAM can be used for this GUI
+ * This is the THIRD/FINAL strategy - only tried if both above fail
+ * 
+ * @param gui_size Size of GUI in bytes
+ * @return true if Internal RAM can hold the GUI
+ */
 bool gui_memory_strategy_can_use_internal_ram(uint32_t gui_size) {
-    return gui_size <= strategy_config.internal_ram_max_size &&
-           gui_memory_has_enough_memory((const char*)"dummy");  // Quick check
+    // GUI must fit in internal RAM limit
+    if (gui_size > strategy_config.internal_ram_max_size) return false;
+    
+    // Check if we actually have enough free memory
+    if (!gui_memory_has_enough_memory((const char*)"dummy")) return false;
+    
+    return true;  // Internal RAM CAN be used, STOP here
 }
 
 // ============================================================================
