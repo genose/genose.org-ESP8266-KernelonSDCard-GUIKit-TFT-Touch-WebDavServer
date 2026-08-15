@@ -21,7 +21,8 @@ docs/discussion_analysis/
 ├── 12_OPTIMIZATIONS.md               # ESP8266-specific optimizations
 ├── 13_UI_PARSER.md                   # JSON UI parser and dynamic loading
 ├── 14_ADVANCED_FEATURES.md           # Clipboard, gestures, history, undo/redo
-└── 15_PROJECT_STRUCTURE.md           # Complete file structure and platformio.ini
+├── 15_PROJECT_STRUCTURE.md           # Complete file structure and platformio.ini
+└── 16_SCROLLABLE_UNION.md            # Union-based scrollable property with bitmask flags
 ```
 
 ## Concept Categories
@@ -163,6 +164,8 @@ src/gui/
 ├── widget_pool.c               # Object pool implementation
 ├── widget_macros.h             # Constructor and utility macros
 ├── widget_text.h               # Text buffer management
+├── widget_scrollable.h         # Union-based scrollable property support
+├── widget_scrollable.c         # Scrollable implementation
 ├── style.h                     # Draw style definitions
 ├── style.cpp                   # Style utility functions
 ├── renderer.h                  # Renderer declarations
@@ -237,3 +240,4 @@ Each file contains:
 - [x] UI parser extraction
 - [x] Advanced features extraction
 - [x] Project structure extraction
+- [x] Scrollable union implementation (widget_scrollable.h/c)

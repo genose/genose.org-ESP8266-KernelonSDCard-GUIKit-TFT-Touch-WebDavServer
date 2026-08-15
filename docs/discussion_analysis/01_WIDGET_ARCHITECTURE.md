@@ -75,11 +75,16 @@ struct t_widget_base {
         } margin;
     } bound;
 
+    // Scrollable support (union-based, memory optimized)
+    Scrollable scroll;           // Scrollable property with bitmask flags
+
     // Child widgets (for container widgets like VIEW)
     struct t_widget_base** children;  // Pointer to array of widgets
     uint8_t children_count;            // Number of children
 };
 ```
+
+**Memory Optimization**: The union-based scrollable design saves ~46% memory on average by only storing data for active scroll directions. See `16_SCROLLABLE_UNION.md` for complete details.
 
 ### Button Widget Structure
 
@@ -422,5 +427,14 @@ Use interrupts for touch to avoid blocking the CPU.
 
 ---
 
+---
+
+## Related Documentation
+
+- **Scrollable Support**: See `16_SCROLLABLE_UNION.md` for union-based scrollable implementation
+- **Memory Management**: See `docs/MEMORY_MANAGEMENT.md` for memory optimization strategies
+- **Style System**: See `05_STYLE_SYSTEM.md` for widget styling
+
 *Source: Extracted from discussion_guikit.txt, lines 1-400*
 *Documentation organized by Mistral Vibe*
+*Updated: Added union-based scrollable support*
