@@ -16,15 +16,21 @@
 
 // ============================================================================
 // Configuration
+// (Now using memory_strategy_config_t from guikit_hw_config.h)
 // ============================================================================
 
-// Enable/disable external RAM usage
-// Set to 1 to load GUI into external RAM by default
-// Set to 0 to load GUI into internal RAM (original behavior)
-#define GUI_LOADER_USE_EXTERNAL_RAM_BY_DEFAULT 1
+#include "guikit_hw_config.h"
 
-// Enable/disable memory checking before loading
+// For backward compatibility with existing code
+#define GUI_LOADER_USE_EXTERNAL_RAM_BY_DEFAULT 1
 #define GUI_LOADER_CHECK_MEMORY_BEFORE_LOAD 1
+
+// Get config from memory strategy
+static const memory_strategy_config_t* get_memory_config() {
+    // This would normally be set during initialization
+    // For now, return NULL to use defaults
+    return NULL;
+}
 
 // ============================================================================
 // External RAM Instance

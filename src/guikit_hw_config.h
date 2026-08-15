@@ -113,6 +113,48 @@ typedef struct {
 } guikit_display_config_t;
 
 // ============================================================================
+// Memory Strategy Configuration
+// Hierarchical strategy: External RAM -> SD Card Swap -> Internal RAM
+// ============================================================================
+
+typedef enum {
+    MEMORY_STRATEGY_EXTERNAL_RAM = 0,  // Use external SRAM (preferred)
+    MEMORY_STRATEGY_SD_SWAP,          // Use SD card as swap/streaming storage
+    MEMORY_STRATEGY_INTERNAL_RAM,    // Use internal RAM (fallback)
+    MEMORY_STRATEGY_FAILED            // All strategies failed
+} MemoryStrategyLevel;
+
+/**
+ * Memory strategy configuration struct
+ * Controls thresholds and behavior for hierarchical memory management
+ */
+typedef struct {
+    // Thresholds for strategy selection
+    uint32_t external_ram_min_size;    // Min GUI size to use external RAM (default: 4096)
+    uint32_t sd_swap_min_size;        // Min GUI size to use SD swap (default: 16384)
+    uint32_t internal_ram_max_size;   // Max GUI size for internal RAM (default: 8192)
+    
+    // External RAM limits
+    uint32_t external_ram_max_size;   // Max size for external RAM storage (default: 131072 = 128KB)
+    uint32_t external_ram_base_addr;   // Base address in external RAM (default: 0)
+    
+    // SD Card swap configuration
+    uint16_t sd_swap_block_size;      // SD card sector size (default: 512)
+    uint16_t sd_swap_cache_size;      // Cache size for streaming (default: 2048)
+    
+    // Strategy behavior flags
+    bool use_external_ram_by_default; // Try external RAM first if available
+    bool use_sd_swap_by_default;     // Try SD swap if external RAM unavailable
+    bool check_memory_before_load;   // Validate memory before loading
+    bool display_error_on_tft;       // Display errors on TFT screen
+    
+    // Current/active settings (runtime)
+    MemoryStrategyLevel current_strategy;
+    bool strategy_initialized;
+    
+} memory_strategy_config_t;
+
+// ============================================================================
 // THE Single Common Config Struct for Both MCUs
 // ============================================================================
 
@@ -139,6 +181,9 @@ typedef struct {
     
     // Display configuration
     guikit_display_config_t display;
+    
+    // Memory strategy configuration
+    memory_strategy_config_t memory_strategy;
     
     // System flags
     bool use_sd_card;
@@ -182,6 +227,28 @@ extern const guikit_hw_config_t GUIKIT_HW_ESP32_DEFAULT;
 #define GUIKIT_DISPLAY_BPP(cfg)       ((cfg).display.color_depth)
 #define GUIKIT_FRAMEBUFFER_SIZE(cfg) \
     ((cfg).display.width * (cfg).display.height * ((cfg).display.color_depth + 7) / 8)
+
+// ============================================================================
+// Memory Strategy Defaults
+// ============================================================================
+
+// Default memory strategy configuration
+#define GUIKIT_MEMORY_STRATEGY_DEFAULT \
+{ \
+    .external_ram_min_size = 4096,           // 4KB minimum for external RAM \
+    .sd_swap_min_size = 16384,              // 16KB minimum for SD swap \
+    .internal_ram_max_size = 8192,          // 8KB maximum for internal RAM \
+    .external_ram_max_size = 131072,        // 128KB for 23LC1024 \
+    .external_ram_base_addr = 0,             // Start at beginning of SRAM \
+    .sd_swap_block_size = 512,             // SD card sector size \
+    .sd_swap_cache_size = 2048,            // 2KB cache for streaming \
+    .use_external_ram_by_default = true,   // Try external RAM first \
+    .use_sd_swap_by_default = true,        // Try SD swap if external unavailable \
+    .check_memory_before_load = true,      // Validate memory before loading \
+    .display_error_on_tft = true,          // Display errors on TFT \
+    .current_strategy = MEMORY_STRATEGY_INTERNAL_RAM, \
+    .strategy_initialized = false \
+}
 
 // ============================================================================
 // Configuration Presets
@@ -327,5 +394,42 @@ bool guikit_hw_config_validate(const guikit_hw_config_t* cfg);
  * Print configuration summary
  */
 void guikit_hw_config_print(const guikit_hw_config_t* cfg);
+
+// ============================================================================
+// Memory Strategy Configuration Helpers
+// ============================================================================
+
+/**
+ * Initialize memory strategy config with defaults
+ */
+void guikit_memory_strategy_config_init(memory_strategy_config_t* cfg);
+
+/**
+ * Validate memory strategy configuration
+ */
+bool guikit_memory_strategy_config_validate(const memory_strategy_config_t* cfg);
+
+/**
+ * Check if memory strategy should use external RAM for given GUI size
+ */
+bool guikit_memory_strategy_should_use_external_ram(const memory_strategy_config_t* cfg, uint32_t gui_size);
+
+/**
+ * Check if memory strategy should use SD swap for given GUI size
+ */
+bool guikit_memory_strategy_should_use_sd_swap(const memory_strategy_config_t* cfg, uint32_t gui_size);
+
+/**
+ * Check if memory strategy should use internal RAM for given GUI size
+ */
+bool guikit_memory_strategy_should_use_internal_ram(const memory_strategy_config_t* cfg, uint32_t gui_size);
+
+/**
+ * Select memory strategy based on GUI size and configuration
+ */
+MemoryStrategyLevel guikit_memory_strategy_select(const memory_strategy_config_t* cfg, 
+                                                    uint32_t gui_size, 
+                                                    bool sram_available, 
+                                                    bool sdcard_available);
 
 #endif // GUIKIT_HW_CONFIG_H

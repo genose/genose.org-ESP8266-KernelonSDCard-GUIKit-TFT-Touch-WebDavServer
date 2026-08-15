@@ -34,6 +34,29 @@ static MemoryStrategyLevel current_strategy = MEMORY_STRATEGY_INTERNAL_RAM;
 static bool gui_loaded = false;
 static void (*error_callback)(const char*) = nullptr;
 
+// Memory strategy configuration
+static memory_strategy_config_t strategy_config = GUIKIT_MEMORY_STRATEGY_DEFAULT;
+static bool config_initialized = false;
+
+// ============================================================================
+// Configuration Management
+// ============================================================================
+
+const memory_strategy_config_t* gui_memory_strategy_get_config_ptr() {
+    return &strategy_config;
+}
+
+void gui_memory_strategy_set_config(const memory_strategy_config_t* config) {
+    if (config) {
+        strategy_config = *config;
+        config_initialized = true;
+    } else {
+        // Reset to defaults
+        strategy_config = GUIKIT_MEMORY_STRATEGY_DEFAULT;
+        config_initialized = true;
+    }
+}
+
 // ============================================================================
 // Helper Functions
 // ============================================================================
@@ -86,24 +109,42 @@ static MemoryStrategyResult create_error_result(MemoryStrategyLevel level,
 // Public Functions
 // ============================================================================
 
-void gui_memory_strategy_init(SPISRAM* sram, SDCard* sdcard, TFT_ST7789* tft) {
+void gui_memory_strategy_init(SPISRAM* sram, SDCard* sdcard, TFT_ST7789* tft, 
+                              const memory_strategy_config_t* config) {
     strategy_sram = sram;
     strategy_sdcard = sdcard;
     strategy_tft = tft;
+    
+    // Initialize configuration
+    if (config) {
+        strategy_config = *config;
+    } else if (!config_initialized) {
+        strategy_config = GUIKIT_MEMORY_STRATEGY_DEFAULT;
+    }
+    config_initialized = true;
+    
+    // Update runtime config from static config
+    strategy_config.strategy_initialized = true;
+    strategy_config.current_strategy = MEMORY_STRATEGY_INTERNAL_RAM;
     
     // Initialize external RAM loader if SRAM is provided
     if (sram) {
         gui_external_ram_init(sram);
     }
     
-    // Allocate SD swap cache
-    sd_swap_cache = (uint8_t*)malloc(SD_SWAP_CACHE_SIZE);
+    // Allocate SD swap cache using config value
+    sd_swap_cache = (uint8_t*)malloc(strategy_config.sd_swap_cache_size);
     if (sd_swap_cache) {
         gui_memory_strategy_sd_swap_init(sd_swap_cache);
     }
     
     current_strategy = MEMORY_STRATEGY_INTERNAL_RAM;
     gui_loaded = false;
+}
+
+// Legacy initialization (for backward compatibility)
+void gui_memory_strategy_init_legacy(SPISRAM* sram, SDCard* sdcard, TFT_ST7789* tft) {
+    gui_memory_strategy_init(sram, sdcard, tft, nullptr);
 }
 
 MemoryStrategyResult gui_memory_strategy_load(const char* filepath) {
@@ -231,15 +272,17 @@ MemoryStrategyLevel gui_memory_strategy_select(uint32_t gui_size,
                                                 bool sram_available, 
                                                 bool sdcard_available) {
     // Priority 1: External RAM (if available and GUI is large enough)
-    if (sram_available && gui_size >= MEMORY_STRATEGY_EXTERNAL_RAM_MIN_SIZE) {
-        if (gui_memory_strategy_can_use_external_ram(gui_size)) {
+    if (sram_available && gui_size >= strategy_config.external_ram_min_size) {
+        if (strategy_config.use_external_ram_by_default && 
+            gui_memory_strategy_can_use_external_ram(gui_size)) {
             return MEMORY_STRATEGY_EXTERNAL_RAM;
         }
     }
     
     // Priority 2: SD Card Swap (if SD card available and GUI is large)
-    if (sdcard_available && gui_size >= MEMORY_STRATEGY_SD_SWAP_MIN_SIZE) {
-        if (gui_memory_strategy_can_use_sd_swap(gui_size)) {
+    if (sdcard_available && gui_size >= strategy_config.sd_swap_min_size) {
+        if (strategy_config.use_sd_swap_by_default && 
+            gui_memory_strategy_can_use_sd_swap(gui_size)) {
             return MEMORY_STRATEGY_SD_SWAP;
         }
     }
@@ -255,7 +298,7 @@ MemoryStrategyLevel gui_memory_strategy_select(uint32_t gui_size,
 
 bool gui_memory_strategy_can_use_external_ram(uint32_t gui_size) {
     if (!strategy_sram) return false;
-    return gui_size <= GUI_EXTERNAL_RAM_MAX_SIZE &&
+    return gui_size <= strategy_config.external_ram_max_size &&
            gui_external_ram_has_space(strategy_sram, gui_size);
 }
 
@@ -265,7 +308,7 @@ bool gui_memory_strategy_can_use_sd_swap(uint32_t gui_size) {
 }
 
 bool gui_memory_strategy_can_use_internal_ram(uint32_t gui_size) {
-    return gui_size <= MEMORY_STRATEGY_INTERNAL_RAM_MAX_SIZE &&
+    return gui_size <= strategy_config.internal_ram_max_size &&
            gui_memory_has_enough_memory((const char*)"dummy");  // Quick check
 }
 
@@ -302,7 +345,7 @@ MemoryStrategyResult gui_memory_strategy_external_ram(const char* filepath) {
             MEMORY_STRATEGY_EXTERNAL_RAM, true, gui_size, "External RAM"
         );
         result.data.external_ram.sram = strategy_sram;
-        result.data.external_ram.sram_addr = GUI_EXTERNAL_RAM_BASE_ADDR;
+        result.data.external_ram.sram_addr = strategy_config.external_ram_base_addr;
         result.memory_used = gui_size + 4;  // +4 for length header
         return result;
     }
@@ -332,7 +375,7 @@ MemoryStrategyResult gui_memory_strategy_external_ram_json(const char* json) {
             MEMORY_STRATEGY_EXTERNAL_RAM, true, gui_size, "External RAM"
         );
         result.data.external_ram.sram = strategy_sram;
-        result.data.external_ram.sram_addr = GUI_EXTERNAL_RAM_BASE_ADDR;
+        result.data.external_ram.sram_addr = strategy_config.external_ram_base_addr;
         result.memory_used = gui_size + 4;
         return result;
     }
@@ -588,9 +631,9 @@ void gui_memory_strategy_get_stats(uint32_t* total_ram, uint32_t* used_ram,
             
         case MEMORY_STRATEGY_INTERNAL_RAM:
             // Internal RAM stats
-            if (total_ram) *total_ram = MEMORY_STRATEGY_INTERNAL_RAM_MAX_SIZE;
+            if (total_ram) *total_ram = strategy_config.internal_ram_max_size;
             if (used_ram) *used_ram = 0;  // Would need to track
-            if (free_ram) *free_ram = MEMORY_STRATEGY_INTERNAL_RAM_MAX_SIZE;
+            if (free_ram) *free_ram = strategy_config.internal_ram_max_size;
             break;
             
         default:

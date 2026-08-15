@@ -21,6 +21,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "widget_pool.h"
+#include "guikit_hw_config.h"
 
 // Forward declarations
 class SPISRAM;
@@ -29,31 +30,38 @@ class TFT_ST7789;
 
 // ============================================================================
 // Memory Strategy Levels
+// (Now defined in guikit_hw_config.h for sharing with other modules)
 // ============================================================================
 
-typedef enum {
-    MEMORY_STRATEGY_EXTERNAL_RAM = 0,  // Use external SRAM (preferred)
-    MEMORY_STRATEGY_SD_SWAP,          // Use SD card as swap/streaming storage
-    MEMORY_STRATEGY_INTERNAL_RAM,    // Use internal RAM (fallback)
-    MEMORY_STRATEGY_FAILED            // All strategies failed
-} MemoryStrategyLevel;
+// Use the MemoryStrategyLevel from guikit_hw_config.h
+// typedef enum {
+//     MEMORY_STRATEGY_EXTERNAL_RAM = 0,
+//     MEMORY_STRATEGY_SD_SWAP,
+//     MEMORY_STRATEGY_INTERNAL_RAM,
+//     MEMORY_STRATEGY_FAILED
+// } MemoryStrategyLevel;
 
 // ============================================================================
 // Memory Strategy Configuration
+// (Now using memory_strategy_config_t from guikit_hw_config.h)
 // ============================================================================
 
-// Thresholds for strategy selection
-#define MEMORY_STRATEGY_EXTERNAL_RAM_MIN_SIZE 4096    // Min size to use external RAM
-#define MEMORY_STRATEGY_SD_SWAP_MIN_SIZE 16384        // Min size to use SD swap
-#define MEMORY_STRATEGY_INTERNAL_RAM_MAX_SIZE (8 * 1024)  // Max for internal RAM (8KB)
-
-// External RAM address range for GUI
-#define GUI_EXTERNAL_RAM_BASE_ADDR 0x000000
-#define GUI_EXTERNAL_RAM_MAX_SIZE (128 * 1024)  // 128KB for 23LC1024
-
-// SD Card swap configuration
-#define SD_SWAP_BLOCK_SIZE 512  // SD card sector size
-#define SD_SWAP_CACHE_SIZE 2048  // Cache size for streaming
+// For backward compatibility, define macros that use the config
+// These will be removed in future versions
+#define MEMORY_STRATEGY_EXTERNAL_RAM_MIN_SIZE (gui_memory_strategy_get_config_ptr() ? \
+    gui_memory_strategy_get_config_ptr()->external_ram_min_size : 4096)
+#define MEMORY_STRATEGY_SD_SWAP_MIN_SIZE (gui_memory_strategy_get_config_ptr() ? \
+    gui_memory_strategy_get_config_ptr()->sd_swap_min_size : 16384)
+#define MEMORY_STRATEGY_INTERNAL_RAM_MAX_SIZE (gui_memory_strategy_get_config_ptr() ? \
+    gui_memory_strategy_get_config_ptr()->internal_ram_max_size : (8 * 1024))
+#define GUI_EXTERNAL_RAM_BASE_ADDR (gui_memory_strategy_get_config_ptr() ? \
+    gui_memory_strategy_get_config_ptr()->external_ram_base_addr : 0x000000)
+#define GUI_EXTERNAL_RAM_MAX_SIZE (gui_memory_strategy_get_config_ptr() ? \
+    gui_memory_strategy_get_config_ptr()->external_ram_max_size : (128 * 1024))
+#define SD_SWAP_BLOCK_SIZE (gui_memory_strategy_get_config_ptr() ? \
+    gui_memory_strategy_get_config_ptr()->sd_swap_block_size : 512)
+#define SD_SWAP_CACHE_SIZE (gui_memory_strategy_get_config_ptr() ? \
+    gui_memory_strategy_get_config_ptr()->sd_swap_cache_size : 2048)
 
 // ============================================================================
 // Memory Strategy Result
@@ -88,17 +96,46 @@ typedef struct {
 } MemoryStrategyResult;
 
 // ============================================================================
+// Configuration Management
+// ============================================================================
+
+/**
+ * Get pointer to current memory strategy configuration
+ * 
+ * @return Pointer to memory_strategy_config_t, or NULL if not initialized
+ */
+const memory_strategy_config_t* gui_memory_strategy_get_config_ptr();
+
+/**
+ * Set memory strategy configuration
+ * 
+ * @param config Pointer to memory_strategy_config_t to use
+ */
+void gui_memory_strategy_set_config(const memory_strategy_config_t* config);
+
+/**
+ * Initialize memory strategy system with configuration
+ * 
+ * @param sram Pointer to external SRAM instance (can be NULL)
+ * @param sdcard Pointer to SD card instance (can be NULL)
+ * @param tft Pointer to TFT for error display (can be NULL)
+ * @param config Pointer to memory strategy configuration (can be NULL for defaults)
+ */
+void gui_memory_strategy_init(SPISRAM* sram, SDCard* sdcard, TFT_ST7789* tft, 
+                              const memory_strategy_config_t* config = nullptr);
+
+// ============================================================================
 // Main Strategy Functions
 // ============================================================================
 
 /**
- * Initialize memory strategy system
+ * Initialize memory strategy system (legacy - uses defaults)
  * 
  * @param sram Pointer to external SRAM instance (can be NULL)
  * @param sdcard Pointer to SD card instance (can be NULL)
  * @param tft Pointer to TFT for error display (can be NULL)
  */
-void gui_memory_strategy_init(SPISRAM* sram, SDCard* sdcard, TFT_ST7789* tft);
+void gui_memory_strategy_init_legacy(SPISRAM* sram, SDCard* sdcard, TFT_ST7789* tft);
 
 /**
  * Load GUI using the best available memory strategy
