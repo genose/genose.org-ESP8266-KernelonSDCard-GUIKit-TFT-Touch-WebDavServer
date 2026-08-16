@@ -369,6 +369,56 @@ These macros will be deprecated in future versions.
 | Complex UI | 16KB - 128KB | External RAM |
 | Huge UI | > 128KB | SD Card Swap |
 
+## RAM Length Detection
+
+The memory strategy system relies on accurate RAM size information. The bootloader includes a RAM length detection system that verifies the actual size of external RAM to prevent wiring errors.
+
+### Purpose
+
+The RAM length detection ensures that:
+1. The reported RAM size matches the actual physical RAM
+2. Wiring errors are detected (e.g., a 64KB chip wired as 256KB)
+3. Memory strategy uses correct RAM sizes for decision making
+4. Users are warned via "WTM: X wired!" messages when mismatches occur
+
+### Configuration
+
+RAM length detection is configured via `/etc/GUIKIT_autostart.ini`:
+
+```ini
+[ram_test]
+; Enable RAM length detection at boot
+enabled = true
+
+; Number of test passes (1 or 2)
+; 1 = Single pattern test (faster)
+; 2 = Double pattern test (more reliable, detects wiring errors)
+test_passes = 2
+
+; Timeout in milliseconds
+timeout_ms = 5000
+
+; Show progress on TFT during test
+show_progress = true
+
+; Stop boot on test failure
+stop_on_failure = false
+
+; Expected sizes for each RAM bank (0 = auto-detect)
+; If detected size doesn't match, a WTM warning is shown
+bank_0 = 0
+bank_1 = 0
+```
+
+### Impact on Memory Strategy
+
+When RAM length detection is enabled:
+- **Accurate Sizes**: Memory strategy uses verified RAM sizes instead of assumed values
+- **Wiring Error Prevention**: Prevents using incorrect RAM sizes that could cause memory corruption
+- **Better Decision Making**: Strategy selection is based on actual available memory
+
+If RAM length detection is disabled or fails, the system falls back to hardware-reported sizes (from SPI device enumeration).
+
 ## Troubleshooting
 
 ### Common Issues

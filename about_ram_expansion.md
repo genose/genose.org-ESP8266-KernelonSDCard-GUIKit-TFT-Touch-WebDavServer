@@ -15,6 +15,9 @@
 7. [FRAM (Ferroelectric RAM)](#fram-ferroelectric-ram)
 8. [GUIKit-Specific Recommendations](#guikit-specific-recommendations)
 9. [Implementation Strategy](#implementation-strategy)
+   - [Phase 0: RAM Length Detection (Bootloader)](#phase-0-ram-length-detection-bootloader)
+   - [Phase 1: Software Optimizations (No Hardware)](#phase-1-software-optimizations-no-hardware)
+   - [Phase 2: Add SPI SRAM (23LC1024)](#phase-2-add-spi-sram-23lc1024)
 10. [Comparison Table](#comparison-table)
 11. [Recommended Solution: 23LC1024](#recommended-solution-23lc1024)
 12. [Wiring Diagrams](#wiring-diagrams)
@@ -614,6 +617,44 @@ void drawImageTile(const uint8_t* image, int tileX, int tileY, int tileW, int ti
 ---
 
 ## 🚀 Implementation Strategy
+
+### Phase 0: RAM Length Detection (Bootloader)
+
+**Goal:** Verify actual RAM size to prevent wiring errors
+
+**Tasks:**
+1. ✅ **Implement RAM length detection** in bootloader
+   - Binary search for efficient size detection
+   - 1-2 test passes for verification
+   - Pattern write/readback testing
+   
+2. ✅ **Add WTM (Wrong Thing Mounted) warnings**
+   - Detect wiring errors (e.g., 64K chip wired as 256K)
+   - Display warnings on TFT
+   - Optional boot stop on failure
+   
+3. ✅ **Integrate with memory strategy**
+   - Use verified RAM sizes for strategy decisions
+   - Fallback to hardware-reported sizes if detection fails
+   
+4. ✅ **Add configuration via /etc/GUIKIT_autostart.ini**
+   - Enable/disable testing
+   - Configure test passes (1 or 2)
+   - Set timeout and progress display options
+
+**Configuration Example:**
+```ini
+[ram_test]
+enabled = true
+test_passes = 2
+timeout_ms = 5000
+show_progress = true
+stop_on_failure = false
+bank_0 = 0
+bank_1 = 0
+```
+
+**Files:** `src/boot/ram_test.h`, `src/boot/ram_test.cpp`
 
 ### Phase 1: Software Optimizations (No Hardware)
 

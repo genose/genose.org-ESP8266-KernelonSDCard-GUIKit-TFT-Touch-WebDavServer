@@ -7,9 +7,10 @@ The GUIKit bootloader performs hardware detection and memory strategy initializa
 ## Features
 
 - **Automatic Hardware Detection**: Detects all SPI devices including SRAM, PSRAM, SD Card, TFT, Touch controllers, and GPIO expanders
+- **RAM Length Detection**: Tests actual RAM size with 1-2 passes to detect wiring errors (e.g., 64K chip wired as 256K)
 - **Memory Strategy Configuration**: Dynamically configures memory strategy based on detected hardware
 - **TFT Display Support**: Shows boot progress and results on the TFT display
-- **Error Handling**: Comprehensive error detection and reporting
+- **Error Handling**: Comprehensive error detection and reporting with WTM warnings
 - **Platform Support**: Works with both ESP8266 and ESP32
 
 ## Hardware Detection Flow
@@ -28,12 +29,19 @@ Boot Start
    │   └── SPI Expanders (MCP23S17, etc.)
    └── Build SPI Device Enumeration List
     ↓
-2. RAM Initialization
-   ├── Initialize Internal RAM
-   ├── Initialize External SRAM
-   └── Initialize PSRAM
+2. RAM Length Detection
+   ├── Test actual RAM size for each bank
+   ├── 1-2 test passes per bank
+   ├── Detect wiring errors (64K wired as 256K, etc.)
+   ├── Display WTM warnings on TFT
+   └── Verify detected sizes match expected
     ↓
-3. SD Card Initialization
+3. RAM Initialization
+   ├── Initialize Internal RAM
+   ├── Initialize External SRAM with verified sizes
+   └── Initialize PSRAM with verified sizes
+    ↓
+4. SD Card Initialization
     ↓
 4. TFT Initialization
     ↓
@@ -54,6 +62,54 @@ Boot Start
    └── Display results on TFT (if available)
     ↓
 Boot Complete
+```
+
+## RAM Length Detection
+
+The bootloader includes a RAM length detection system that tests actual RAM size to detect wiring errors.
+
+### How It Works
+
+1. **Binary Search Detection**: Efficiently tests known RAM sizes using binary search
+2. **Pattern Testing**: Writes test patterns to RAM and verifies read-back
+3. **Double Pass Verification**: With 2 passes enabled, writes two different patterns for higher reliability
+4. **Wiring Error Detection**: Detects when a smaller chip is wired in place of a larger one
+5. **Progress Display**: Shows test progress on TFT with percentage and current size
+6. **WTM Warnings**: Displays "WTM: X wired!" warnings when mismatches are detected
+
+### Configuration
+
+Configured via `/etc/GUIKIT_autostart.ini`:
+
+```ini
+[ram_test]
+enabled = true
+test_passes = 2
+timeout_ms = 5000
+show_progress = true
+stop_on_failure = false
+bank_0 = 0
+bank_1 = 0
+```
+
+### Usage in Code
+
+```c
+#include "ram_test.h"
+
+RamTestConfig test_config = RAM_TEST_DEFAULT;
+test_config.enabled = true;
+test_config.test_passes = 2;
+
+RamTestInfo info;
+RamTestResult result = ram_test_detect_size(cs_pin, &test_config, &info);
+
+if (result == RAM_TEST_SUCCESS) {
+    printf("Detected RAM: %u bytes\n", info.detected_size);
+    if (info.is_wiring_mismatch) {
+        printf("WTM: %s wired as %s!\n", info.actual_chip, info.expected_chip);
+    }
+}
 ```
 
 ## SPI Device Enumeration
