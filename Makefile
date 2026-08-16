@@ -185,6 +185,7 @@ info:
 	@echo "  Build Script: $(BUILD_SCRIPT)"
 	@echo "  SDK Path: $(SDK_PATH)"
 	@echo "  Supported RAM: 23LCxxx, LY68L6400, CY15Vxxx, ISSI IS66WVS5128"
+	@echo "  Features: RAM length detection with 1-2 test passes"
 	@echo ""
 	@./build.sh version
 

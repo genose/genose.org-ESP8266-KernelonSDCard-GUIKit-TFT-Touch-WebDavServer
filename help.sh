@@ -14,6 +14,7 @@ Usage:
   ./help.sh bootloader         - Bootloader information
   ./help.sh config             - Configuration information
   ./help.sh gui                - GUI loading information
+  ./help.sh ram-test           - RAM length detection information
   ./help.sh webdav-push        - WebDAV push notification information
   ./help.sh mdns               - mDNS service discovery information
   ./help.sh ram                - RAM chip models information
@@ -27,6 +28,7 @@ Available Commands:
   bootloader   - Show bootloader documentation
   config       - Show hardware configuration documentation
   gui          - Show GUI loading documentation
+  ram-test     - Show RAM length detection documentation
   huge-gui     - Show huge GUI (500KB) results
   webdav-push  - Show WebDAV push notification documentation
   mdns         - Show mDNS service discovery documentation
@@ -103,6 +105,24 @@ case "$1" in
         echo "  - GUIKIT_HW_ESP32_LY68L6400 (512KB Lyontek SRAM)"
         echo ""
         echo "See guikit_hw_config.h for details"
+        ;;
+    "ram-test"|"ramtest")
+        echo "RAM Length Detection Documentation"
+        echo "==================================="
+        echo ""
+        echo "The RAM Length Detection system tests actual RAM size at boot to detect"
+        echo "wiring errors (e.g., a 64K chip wired as 256K)."
+        echo ""
+        echo "Configuration: [ram_test] section in /etc/GUIKIT_autostart.ini"
+        echo ""
+        echo "Key Features:"
+        echo "  - Binary search detection for efficiency"
+        echo "  - 1-2 test passes (single or double pattern verification)"
+        echo "  - Progress display on TFT"
+        echo "  - Wiring error detection with 'WTM: X wired!' warnings"
+        echo "  - Works with all supported RAM chip models"
+        echo ""
+        echo "See HELP.md for complete documentation"
         ;;
     "ram"|"r")
         echo "================================================================================"

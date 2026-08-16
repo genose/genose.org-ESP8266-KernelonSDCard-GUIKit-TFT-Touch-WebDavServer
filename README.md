@@ -113,10 +113,11 @@ The GUIKit now features a **hierarchical memory strategy** with explicit STOP-at
 
 A **hardware detection bootloader** that automatically:
 1. Detects all SPI devices (SRAM, PSRAM, SD Card, TFT, Touch, Expanders)
-2. Initializes RAM (internal and external)
-3. Configures memory strategy based on detected hardware
-4. Tests strategy with various GUI sizes
-5. Displays results on TFT (if available)
+2. **RAM Length Detection** - Tests actual RAM size with 1-2 passes to detect wiring errors (e.g., 64K chip wired as 256K)
+3. Initializes RAM (internal and external) with verified sizes
+4. Configures memory strategy based on detected hardware
+5. Tests strategy with various GUI sizes
+6. Displays RAM test progress and results on TFT (if available)
 
 **Files:**
 - `src/boot/guikit_bootloader.h` - Bootloader header
@@ -707,6 +708,36 @@ Configuration files are stored in `/system/config/` on the SD card:
 - `history.log` – Modification history
 - `share_links.json` – Shareable links
 - `remote_access.json` – Remote access settings
+
+### RAM Test Configuration
+
+The `/etc/GUIKIT_autostart.ini` file includes a `[ram_test]` section for configuring RAM length detection:
+
+```ini
+[ram_test]
+; Enable RAM length detection test at boot
+enabled = true
+
+; Number of test passes (1 or 2)
+; 1 = Single pattern test
+; 2 = Double pattern test (more reliable, detects wiring errors)
+test_passes = 2
+
+; Timeout in milliseconds
+timeout_ms = 5000
+
+; Show progress on TFT during test
+show_progress = true
+
+; Stop boot on test failure
+stop_on_failure = false
+
+; Expected sizes for each RAM bank (0 = auto-detect)
+bank_0 = 0
+bank_1 = 0
+```
+
+The RAM test detects wiring errors (e.g., 64K chip wired as 256K) and displays "WTM: X wired!" warnings on TFT.
 
 ---
 

@@ -142,11 +142,12 @@ EXAMPLES:
 
 BUILD PROCESS:
   1. Bootloader (Flash): Minimal loader with hardware detection (SPI, RAM, SD, TFT)
-  2. Autostart Config: Reads /etc/GUIKIT_autostart.ini for kernel path and settings
-  3. Memory Strategy: Auto-configures external RAM, SD swap, internal RAM
-  4. Kernel (SD Card): Full system with GUIKit, WebDAV, HTTP server, mDNS
-  5. SD Card Structure: Creates /system, /gui, /etc, /home, /tmp directories
-  6. GUI Projects: Copies .GUIKIT projects to /gui/ and /home/admin/projects/
+  2. RAM Length Test: Tests actual RAM size with 1-2 passes to detect wiring errors
+  3. Autostart Config: Reads /etc/GUIKIT_autostart.ini for kernel path and settings
+  4. Memory Strategy: Auto-configures external RAM, SD swap, internal RAM
+  5. Kernel (SD Card): Full system with GUIKit, WebDAV, HTTP server, mDNS
+  6. SD Card Structure: Creates /system, /gui, /etc, /home, /tmp directories
+  7. GUI Projects: Copies .GUIKIT projects to /gui/ and /home/admin/projects/
 
 FEATURES:
   Super fast boot with RAM freeze/thaw from SD card
@@ -154,6 +155,7 @@ FEATURES:
   SMP detection for ESP32 dual-core support
   Autostart configuration via /etc/GUIKIT_autostart.ini
   Memory strategy: External RAM -> SD swap -> Internal RAM (STOP at first success)
+  RAM length detection: 1-2 test passes to detect wiring errors with WTM warnings
   Task switcher: Single-level context switching (A -> B -> back to A)
   Task progress: TFT text display for heavy tasks with minimal RAM usage
   WebDAV support for remote file access and user authentication

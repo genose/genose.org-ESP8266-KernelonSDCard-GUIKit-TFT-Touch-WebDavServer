@@ -5,14 +5,15 @@
 2. [Memory Strategy](#memory-strategy)
 3. [Bootloader](#bootloader)
 4. [Autostart Configuration](#autostart-configuration)
-5. [Task Switcher](#task-switcher)
-6. [Task Progress](#task-progress)
-7. [Hardware Configuration](#hardware-configuration)
-8. [GUI Loading](#gui-loading)
-9. [WebDAV Push Notifications](#webdav-push-notifications)
-10. [mDNS Service Discovery](#mdns-service-discovery)
-11. [Troubleshooting](#troubleshooting)
-12. [Command Reference](#command-reference)
+5. [RAM Length Detection](#ram-length-detection)
+6. [Task Switcher](#task-switcher)
+7. [Task Progress](#task-progress)
+8. [Hardware Configuration](#hardware-configuration)
+9. [GUI Loading](#gui-loading)
+10. [WebDAV Push Notifications](#webdav-push-notifications)
+11. [mDNS Service Discovery](#mdns-service-discovery)
+12. [Troubleshooting](#troubleshooting)
+13. [Command Reference](#command-reference)
 
 ---
 
@@ -1481,8 +1482,105 @@ gui_memory_strategy_get_stats(&total_ram, &used_ram, &free_ram, &strategy);
 
 ---
 
+## RAM Length Detection
+
+### Overview
+
+The **RAM Length Detection** system tests actual RAM size at boot to detect wiring errors (e.g., a 64K chip wired as 256K). This ensures the system correctly identifies and uses the actual available memory.
+
+### Configuration
+
+RAM test is configured through the `[ram_test]` section in `/etc/GUIKIT_autostart.ini`:
+
+```ini
+[ram_test]
+; Enable RAM length detection test at boot
+enabled = true
+
+; Number of test passes for RAM detection
+; 1 = Single pass (write known pattern, read back)
+; 2 = Double pass (write two different patterns for verification)
+test_passes = 2
+
+; Timeout for RAM test in milliseconds
+; If test takes longer than this, it's considered failed
+timeout_ms = 5000
+
+; If true, show detailed progress on TFT during RAM test
+; If false, only show start and result
+show_progress = true
+
+; If true, stop boot if RAM test fails (mismatched size)
+; If false, continue boot with detected size and show warning
+stop_on_failure = false
+
+; Expected RAM sizes for each bank (0 = auto-detect)
+; If detected size doesn't match expected, a warning is shown
+bank_0 = 0
+bank_1 = 0
+```
+
+### How It Works
+
+The RAM test system:
+
+1. **Binary Search Detection**: Tests known RAM sizes using binary search for efficiency
+2. **Pattern Testing**: Writes test patterns to RAM and verifies read-back
+3. **Double Pass Verification**: With 2 passes, writes two different patterns for higher reliability
+4. **Progress Display**: Shows test progress on TFT with percentage and current size being tested
+5. **Wiring Error Detection**: Detects when a smaller chip is wired in place of a larger one
+6. **Result Reporting**: Displays "WTM: X wired!" warnings when wiring mismatches are detected
+
+### Boot Sequence Integration
+
+RAM test runs in the boot sequence:
+
+1. Hardware Detection
+2. SPI Device Detection
+3. **RAM Length Detection** (new)
+4. RAM Initialization with verified sizes
+5. SD Card Initialization
+6. Autostart Configuration Loading
+7. TFT Initialization
+8. Display RAM Test Results on TFT
+9. Kernel Check
+10. Memory Strategy Configuration
+11. Continue Boot
+
+### Usage in Bootloader
+
+```c
+#include "ram_test.h"
+
+RamTestConfig test_config = RAM_TEST_DEFAULT;
+test_config.enabled = true;
+test_config.test_passes = 2;
+test_config.show_progress = true;
+
+RamTestInfo info;
+RamTestResult result = ram_test_detect_size(cs_pin, &test_config, &info);
+
+if (result == RAM_TEST_SUCCESS) {
+    printf("Detected RAM: %u bytes\n", info.detected_size);
+    if (info.is_wiring_mismatch) {
+        printf("WTM: %s wired as %s!\n", info.actual_chip, info.expected_chip);
+    }
+}
+```
+
+### Supported RAM Chips
+
+All RAM chip models are supported for length detection:
+
+- **SPI SRAM**: 23LC512, 23LC1024, 23LCV1024, LY68L6400
+- **FRAM**: MB85RS256B, CY15V102QN, CY15V104QSN
+- **PSRAM**: APS6404, APS1604, APS3204, W9812G6KH, ISSI IS66WVS5128ALL/BLL
+
+---
+
 ## Version History
 
+- **Latest**: RAM length detection with 1-2 test passes for wiring error detection
 - **Latest**: mDNS service discovery (Bonjour/Zeroconf) for device auto-discovery
 - **Latest**: WebDAV push notification authentication system (Basic, Token, Digest, Anonymous)
 - **Latest**: Task switcher for single-level context switching (A -> B -> back to A)
