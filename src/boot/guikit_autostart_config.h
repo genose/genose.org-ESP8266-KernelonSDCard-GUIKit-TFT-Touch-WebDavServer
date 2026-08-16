@@ -97,6 +97,14 @@ typedef struct {
     bool tft_boot_messages;      /// Show boot messages on TFT
     bool serial_boot_messages;   /// Show boot messages on serial
     
+    // RAM Test Configuration
+    bool ram_test_enabled;        /// Enable RAM length detection test
+    uint8_t ram_test_passes;       /// Number of test passes (1 or 2)
+    uint32_t ram_test_timeout_ms;  /// Timeout for RAM test in ms
+    bool ram_test_show_progress;   /// Show detailed progress on TFT
+    bool ram_test_stop_on_failure; /// Stop boot if RAM test fails
+    uint32_t ram_expected_sizes[8]; /// Expected sizes for each RAM bank (0 = auto)
+    
     // Version
     uint16_t config_version;      /// Configuration file version
     char config_file[64];        /// Path to config file
@@ -123,6 +131,12 @@ typedef struct {
             .auto_start = true,\n            .theme = "default", \
             .width = 0,\n            .height = 0 \
         },\n        .allocation_count = 0,\n        .debug = false,\n        .tft_boot_messages = true,\n        .serial_boot_messages = true,\n        .config_version = 1,\n        .config_file = "/etc/GUIKIT_autostart.ini" \
+        .ram_test_enabled = true,
+        .ram_test_passes = 2,
+        .ram_test_timeout_ms = 5000,
+        .ram_test_show_progress = true,
+        .ram_test_stop_on_failure = false,
+        .ram_expected_sizes = {0},
     }
 
 // ============================================================================
@@ -252,6 +266,7 @@ void guikit_autostart_display_progress(GUIKitAutostartConfig *config,
 #define INI_SECTION_GUI          "gui"
 #define INI_SECTION_ALLOCATIONS  "allocations"
 #define INI_SECTION_FLAGS        "flags"
+#define INI_SECTION_RAM_TEST     "ram_test"
 
 // ============================================================================
 // UTILITY FUNCTIONS
