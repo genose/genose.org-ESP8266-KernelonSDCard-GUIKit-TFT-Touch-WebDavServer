@@ -46,6 +46,20 @@ Priority order for kernel components:
 6. **File Manager** → External RAM or SD Swap
 7. **Other components** → Follow STOP-at-first-success strategy
 
+### Image Converter Special Priority
+
+**All image converters (PNG, JPEG, TIFF) follow INTERNAL → EXTERNAL → SWAP priority**
+
+This is different from the default STOP-at-first-success strategy:
+- **Internal RAM first** - For maximum decode speed (ESP32 with sufficient RAM)
+- **External RAM second** - For larger images that don't fit in internal RAM
+- **SD Swap third** - For very large images using decode-to-file pattern
+
+Rationale:
+- Image decoding is CPU-intensive, faster with internal RAM access
+- ESP32 has sufficient internal RAM for many decode operations
+- ESP8266 falls back to external RAM then swap automatically
+
 ## Configuration Struct
 
 The memory strategy configuration is defined in `memory_strategy_config_t` within `guikit_hw_config.h`:

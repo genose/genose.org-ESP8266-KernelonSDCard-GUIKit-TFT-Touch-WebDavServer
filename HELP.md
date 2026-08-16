@@ -69,6 +69,15 @@ The GUIKit uses a **hierarchical memory strategy** with STOP-at-first-success be
 - Widget Definitions: 4KB
 - Touch Handling: 2KB
 
+### Image Converter Special Priority
+
+**All image converters (PNG, JPEG, TIFF) follow INTERNAL → EXTERNAL → SWAP priority:**
+- **Internal RAM first** - Maximum decode speed (ESP32 preferred)
+- **External RAM second** - For larger images
+- **SD Swap third** - For very large images using decode-to-file pattern
+
+This differs from the default STOP-at-first-success strategy to optimize decode performance.
+
 ### Configuration
 
 Memory strategy is configured through `memory_strategy_config_t`:

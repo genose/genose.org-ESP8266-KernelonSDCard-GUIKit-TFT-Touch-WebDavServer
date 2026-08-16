@@ -149,20 +149,22 @@ If all optional features are disabled:
 
 Based on the memory strategy (STOP-at-first-success):
 
-| **Functionality** | **Can use External RAM?** | **Can use SD Swap?** | **Notes** |
-|------------------|---------------------------|---------------------|-----------|
-| GUIKit Core | ✅ Yes | ❌ No | Needs fast access |
-| Widget Definitions | ✅ Yes | ❌ No | Type data |
-| Rendering Engine | ✅ Yes | ❌ No | Frame buffers |
-| Touch Handling | ✅ Yes | ❌ No | State data |
-| WebDAV Server | ✅ Yes | ✅ Yes | File buffers |
-| HTTP Server | ✅ Yes | ✅ Yes | Request buffers |
-| File Manager | ✅ Yes | ✅ Yes | File operations |
-| JSON Parser | ✅ Yes | ✅ Yes | Streaming possible |
-| GUI Loader | ✅ Yes | ✅ Yes | JSON processing |
-| Task Switcher | ✅ Yes | ✅ Yes | Freeze to SD |
-| RAM Freeze System | ❌ No | ✅ Yes | Designed for SD |
-| PNG Converter | ❌ No | ✅ Yes | Decode to file |
+| **Functionality** | **Can use External RAM?** | **Can use SD Swap?** | **Priority Order** | **Notes** |
+|------------------|---------------------------|---------------------|-------------------|-----------|
+| GUIKit Core | ✅ Yes | ❌ No | External → Internal | Needs fast access |
+| Widget Definitions | ✅ Yes | ❌ No | External → Internal | Type data |
+| Rendering Engine | ✅ Yes | ❌ No | External → Internal | Frame buffers |
+| Touch Handling | ✅ Yes | ❌ No | External → Internal | State data |
+| WebDAV Server | ✅ Yes | ✅ Yes | External → Swap → Internal | File buffers |
+| HTTP Server | ✅ Yes | ✅ Yes | External → Swap → Internal | Request buffers |
+| File Manager | ✅ Yes | ✅ Yes | External → Swap → Internal | File operations |
+| JSON Parser | ✅ Yes | ✅ Yes | External → Swap → Internal | Streaming possible |
+| GUI Loader | ✅ Yes | ✅ Yes | External → Swap → Internal | JSON processing |
+| Task Switcher | ✅ Yes | ✅ Yes | External → Swap → Internal | Freeze to SD |
+| RAM Freeze System | ❌ No | ✅ Yes | Swap only | Designed for SD |
+| **PNG Converter** | ✅ Yes | ✅ Yes | **Internal → External → Swap** | **Decode speed priority** |
+| **JPEG Converter** | ✅ Yes | ✅ Yes | **Internal → External → Swap** | **Decode speed priority** |
+| **TIFF Converter** | ✅ Yes | ✅ Yes | **Internal → External → Swap** | **Decode speed priority** |
 
 ---
 
@@ -186,23 +188,35 @@ Based on the memory strategy (STOP-at-first-success):
 | Memory Strategy | Internal RAM | - | - | Small config, always internal |
 | Task Switcher | External RAM | SD Swap | Internal RAM | Freeze state can be large |
 | RAM Freeze System | SD Swap | - | - | Designed for SD Card storage |
-| PNG Converter | SD Swap | - | - | Decode to file pattern |
+| **PNG Converter** | **Internal RAM** | **External RAM** | **SD Swap** | **Image converters: Internal > External > Swap** |
+| **JPEG Converter** | **Internal RAM** | **External RAM** | **SD Swap** | **Image converters: Internal > External > Swap** |
+| **TIFF Converter** | **Internal RAM** | **External RAM** | **SD Swap** | **Image converters: Internal > External > Swap** |
 
 ### Key Rule
 **GUIKit Core (16KB) + Rendering Engine (8KB) + Widget Definitions (4KB) + Touch Handling (2KB) = 30KB mandatory external RAM usage** for optimal performance on both ESP8266 and ESP32.
+
+### Image Converter Special Rule
+**All image converters (PNG, JPEG, TIFF) follow INTERNAL_RAM → EXTERNAL_RAM → SD_SWAP priority** due to:
+- Internal RAM first for maximum decode speed (ESP32 only)
+- External RAM second for larger images
+- SD Swap third for very large images using decode-to-file pattern
 
 ---
 
 ## 📈 Decode Strategy RAM Costs
 
-For image processing (PNG/JPEG/TIFF):
+For image processing (PNG/JPEG/TIFF) with **INTERNAL → EXTERNAL → SWAP priority**:
 
-| **Decode Strategy** | **ESP8266 Support** | **ESP32 Support** | **Internal RAM Buffer** | **External RAM Usage** | **SD Card Usage** |
-|--------------------|---------------------|-------------------|------------------------|------------------------|------------------|
-| DECODE_INTERNAL_TOFILE_NORMAL | ✅ Yes | ✅ Yes | Minimal | None | Full |
-| DECODE_INTERNAL_TOFILE_FULL | ✅ Yes | ✅ Yes | Limited (~10KB) | None | Full |
-| DECODE_EXTERNAL_TOFILE_NORMAL | ✅ Yes | ✅ Yes | Minimal | Yes | Full |
-| DECODE_INTERNAL_FULL | ❌ No | ✅ Yes | Full image | None | None |
+| **Decode Strategy** | **ESP8266 Support** | **ESP32 Support** | **Priority** | **Internal RAM Buffer** | **External RAM Usage** | **SD Card Usage** |
+|--------------------|---------------------|-------------------|-------------|------------------------|------------------------|------------------|
+| DECODE_INTERNAL_TOFILE_NORMAL | ✅ Yes | ✅ Yes | **1st** | Minimal | None | Full |
+| DECODE_INTERNAL_TOFILE_FULL | ✅ Yes | ✅ Yes | **1st** | Limited (~10KB) | None | Full |
+| DECODE_INTERNAL_FULL | ❌ No | ✅ Yes | **1st** | Full image | None | None |
+| DECODE_EXTERNAL_TOFILE_NORMAL | ✅ Yes | ✅ Yes | **2nd** | Minimal | Yes | Full |
+| DECODE_EXTERNAL_FULL | ✅ Yes | ✅ Yes | **2nd** | None | Full image | None |
+| DECODE_SD_SWAP | ✅ Yes | ✅ Yes | **3rd** | Minimal cache | None | Full |
+
+**Priority Order:** Internal first → External second → SD Swap third
 
 ---
 
