@@ -56,6 +56,19 @@ The GUIKit uses a **hierarchical memory strategy** with STOP-at-first-success be
 4. Else => FAILED
 ```
 
+### Component Loading Priority
+
+**GUIKit Core (16KB) is explicitly prioritized for External RAM first** due to performance requirements:
+- High access frequency (widget system framework)
+- Performance critical for smooth UI
+- Marked as non-swappable to SD Card
+
+**GUI & Rendering components (30KB total) are prioritized for External RAM:**
+- GUIKit Core: 16KB
+- Rendering Engine: 8KB
+- Widget Definitions: 4KB
+- Touch Handling: 2KB
+
 ### Configuration
 
 Memory strategy is configured through `memory_strategy_config_t`:

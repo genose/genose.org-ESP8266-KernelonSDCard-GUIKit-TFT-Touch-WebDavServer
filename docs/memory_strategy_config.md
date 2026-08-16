@@ -30,6 +30,22 @@ Use Internal RAM
 ERROR: All strategies failed
 ```
 
+### Component Loading Priority
+
+**GUIKit Core (16KB) is prioritized for External RAM first** due to:
+- High access frequency (widget system framework)
+- Performance requirement for smooth UI
+- Marked as non-swappable to SD Card
+
+Priority order for kernel components:
+1. **GUIKit Core** → External RAM (first choice, needs fast access)
+2. **Rendering Engine** → External RAM
+3. **Widget Definitions** → External RAM
+4. **Touch Handling** → External RAM
+5. **WebDAV Server** → External RAM or SD Swap
+6. **File Manager** → External RAM or SD Swap
+7. **Other components** → Follow STOP-at-first-success strategy
+
 ## Configuration Struct
 
 The memory strategy configuration is defined in `memory_strategy_config_t` within `guikit_hw_config.h`:

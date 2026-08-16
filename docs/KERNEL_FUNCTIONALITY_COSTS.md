@@ -18,7 +18,7 @@ Complete breakdown of RAM consumption for each kernel functionality at runtime.
 | **Total Core System** | | **36,864 B** | **36,864 B** | **~46.08%** | **~11.52%** | |
 |
 | **GUI & Rendering** | | | | | | |
-| GUIKit Core | GUI | 16,384 B | 16,384 B | ~20.48% | ~5.12% | Widget system framework |
+| GUIKit Core | GUI | 16,384 B | 16,384 B | ~20.48% | ~5.12% | Widget system framework - **PRIORITY: External RAM first** |
 | Widget Definitions | GUI | 4,096 B | 4,096 B | ~5.12% | ~1.28% | Type structures, properties |
 | Rendering Engine | GUI | 8,192 B | 8,192 B | ~10.24% | ~2.56% | TFT drawing, graphics |
 | Touch Handling | GUI | 2,048 B | 2,048 B | ~2.56% | ~0.64% | XPT2046 touch driver |
@@ -163,6 +163,33 @@ Based on the memory strategy (STOP-at-first-success):
 | Task Switcher | ✅ Yes | ✅ Yes | Freeze to SD |
 | RAM Freeze System | ❌ No | ✅ Yes | Designed for SD |
 | PNG Converter | ❌ No | ✅ Yes | Decode to file |
+
+---
+
+## 🎯 Component Loading Priority
+
+**GUIKit Core is explicitly prioritized for External RAM first** due to performance requirements.
+
+### Priority Matrix
+
+| **Component** | **First Choice** | **Second Choice** | **Third Choice** | **Rationale** |
+|---------------|------------------|-------------------|------------------|---------------|
+| GUIKit Core | External RAM | N/A | Internal RAM | High access frequency, needs fast performance |
+| Rendering Engine | External RAM | N/A | Internal RAM | Frame buffer access, performance critical |
+| Widget Definitions | External RAM | N/A | Internal RAM | Type data, frequently accessed |
+| Touch Handling | External RAM | N/A | Internal RAM | State data, low latency needed |
+| WebDAV Server | External RAM | SD Swap | Internal RAM | Can tolerate swapping |
+| HTTP Server | External RAM | SD Swap | Internal RAM | Can tolerate swapping |
+| File Manager | External RAM | SD Swap | Internal RAM | File operations can stream |
+| JSON Parser | External RAM | SD Swap | Internal RAM | Streaming possible |
+| GUI Loader | External RAM | SD Swap | Internal RAM | JSON processing |
+| Memory Strategy | Internal RAM | - | - | Small config, always internal |
+| Task Switcher | External RAM | SD Swap | Internal RAM | Freeze state can be large |
+| RAM Freeze System | SD Swap | - | - | Designed for SD Card storage |
+| PNG Converter | SD Swap | - | - | Decode to file pattern |
+
+### Key Rule
+**GUIKit Core (16KB) + Rendering Engine (8KB) + Widget Definitions (4KB) + Touch Handling (2KB) = 30KB mandatory external RAM usage** for optimal performance on both ESP8266 and ESP32.
 
 ---
 
