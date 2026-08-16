@@ -114,6 +114,7 @@ Total Available: ~50 KB
 | **Partial Screen Updates** | ⭐⭐⭐⭐⭐ | Medium | $0 | N/A | Reduce TFT writes |
 | **SD Card Caching** | ⭐⭐⭐⭐ | Low | $0 | N/A | Already implemented |
 | **SPI SRAM (23LC1024)** | ⭐⭐⭐⭐⭐ | Medium | ~$3 | 128 KB | Framebuffer, cache |
+| **LY68L6400** | ⭐⭐⭐⭐⭐ | Medium | ~$4 | 512 KB | Large framebuffer |
 | **FRAM (MB85RC256V)** | ⭐⭐⭐ | Medium | ~$5 | 32 KB | Non-volatile state |
 | **FRAM (CY15V102QN)** | ⭐⭐⭐ | Medium | ~$12 | 128 KB | Industrial non-volatile cache |
 | **FRAM (CY15V104QSN)** | ⭐⭐⭐ | Medium | ~$20 | 512 KB | Industrial large persistent cache |
@@ -196,6 +197,7 @@ public:
 | 23K256 | 32 KB | SPI | 20 MHz | 2.5-5.5V | SOIC-8 | ~$1.00 |
 | 23K640 | 64 KB | SPI | 20 MHz | 2.5-5.5V | SOIC-8 | ~$2.00 |
 | 23K1024 | 128 KB | SPI | 20 MHz | 2.5-5.5V | SOIC-8 | ~$2.50 |
+| **Lyontek LY68L6400** | **512 KB** | **SPI** | **50 MHz** | **2.7-3.6V** | **SOIC-8** | **~$4** |
 
 ### 23LC1024 Specifications
 
@@ -360,6 +362,8 @@ PSRAM (Pseudo SRAM) is a type of DRAM that uses a self-refresh circuit to elimin
 | APS1604 | 16 Mb (2 MB) | SPI | 40 MHz | Quad SPI |
 | APS3204 | 32 Mb (4 MB) | SPI | 40 MHz | Quad SPI |
 | W9812G6KH | 64 Mb (8 MB) | SPI | 80 MHz | Quad SPI |
+| **ISSI IS66WVS5128ALL** | **512 Mb (64 MB)** | **SPI (Octal)** | **100 MHz** | **Industrial, ESP32** |
+| **ISSI IS66WVS5128BLL** | **512 Mb (64 MB)** | **SPI (Octal)** | **100 MHz** | **Industrial, ESP32** |
 
 ### ESP8266 Limitation
 
@@ -690,11 +694,13 @@ GND -> GND, HOLD, WP
 | **23LC512** | 64 KB | 20 MHz | Yes | Low | ~$1.50 | 64 KB | Small cache |
 | **23LC1024** | **128 KB** | **20 MHz** | **Yes** | **Low** | **~$3.00** | **128 KB** | **Framebuffer** |
 | **23LCV1024** | 128 KB | 20 MHz | Yes | Low | ~$3.50 | 128 KB | Framebuffer |
+| **LY68L6400** | **512 KB** | **50 MHz** | **Yes** | **Low** | **~$4.00** | **512 KB** | **Large cache** |
 | **FRAM (32KB)** | 32 KB | 20 MHz | No | Medium | ~$5 | 32 KB | Config, state |
 | **FRAM (128KB)** | 128 KB | 20 MHz | No | Medium | ~$10 | 128 KB | Persistent cache |
 | **CY15V102QN** | **128 KB** | **40 MHz** | **No** | **Medium** | **~$12** | **128 KB** | **Config, state (Industrial)** |
 | **CY15V104QSN** | **512 KB** | **40 MHz** | **No** | **Medium** | **~$20** | **512 KB** | **Large persistent cache (Industrial)** |
 | **PSRAM (8MB)** | 8 MB | 40 MHz | Yes | High | ~$5 | 8 MB | ESP32 only |
+| **ISSI IS66WVS5128** | **64 MB** | **100 MHz** | **Yes** | **High** | **~$15** | **64 MB** | **ESP32 Premium** |
 | **ESP32** | 8 MB+ | Fast | Yes | High | ~$10 | 8 MB+ | Full upgrade |
 
 ---
