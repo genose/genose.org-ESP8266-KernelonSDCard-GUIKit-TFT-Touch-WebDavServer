@@ -144,7 +144,7 @@ BUILD PROCESS:
   1. Bootloader (Flash): Minimal loader with hardware detection (SPI, RAM, SD, TFT)
   2. Autostart Config: Reads /etc/GUIKIT_autostart.ini for kernel path and settings
   3. Memory Strategy: Auto-configures external RAM, SD swap, internal RAM
-  4. Kernel (SD Card): Full system with GUIKit, WebDAV, HTTP server
+  4. Kernel (SD Card): Full system with GUIKit, WebDAV, HTTP server, mDNS
   5. SD Card Structure: Creates /system, /gui, /etc, /home, /tmp directories
   6. GUI Projects: Copies .GUIKIT projects to /gui/ and /home/admin/projects/
 
@@ -157,6 +157,7 @@ FEATURES:
   Task switcher: Single-level context switching (A -> B -> back to A)
   Task progress: TFT text display for heavy tasks with minimal RAM usage
   WebDAV support for remote file access and user authentication
+  mDNS service discovery (Bonjour/Zeroconf) for device auto-discovery
   WebDAV push notifications with authentication (SSE, WebSocket, Long Polling)
   Project structure: (project_name).GUIKIT directories
 

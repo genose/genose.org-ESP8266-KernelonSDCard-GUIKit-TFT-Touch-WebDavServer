@@ -10,8 +10,9 @@
 7. [Hardware Configuration](#hardware-configuration)
 8. [GUI Loading](#gui-loading)
 9. [WebDAV Push Notifications](#webdav-push-notifications)
-10. [Troubleshooting](#troubleshooting)
-11. [Command Reference](#command-reference)
+10. [mDNS Service Discovery](#mdns-service-discovery)
+11. [Troubleshooting](#troubleshooting)
+12. [Command Reference](#command-reference)
 
 ---
 
@@ -868,6 +869,266 @@ WebDAVPushAuthConfig auth_config = {
 
 ---
 
+## mDNS Service Discovery
+
+The **mDNS (Multicast DNS / Bonjour / Zeroconf)** service enables ESP8266/ESP32 devices to be discovered on the local network using simple hostnames like `esp8266.local` without requiring DNS configuration or `/etc/hosts` entries.
+
+### Overview
+
+mDNS allows devices to advertise themselves and their services on the local network. Clients can then discover and connect to these services using human-readable names instead of IP addresses.
+
+**Key Benefits:**
+- Zero-configuration: No DNS server needed
+- Automatic: Devices advertise themselves automatically
+- Cross-platform: Works on Linux (avahi), macOS (Bonjour), Windows (Bonjour service)
+- Service discovery: Find all available services and their metadata
+
+### How It Works
+
+1. ESP8266 connects to WiFi network
+2. Device calls `mdns_init()` to start mDNS service
+3. Device advertises itself as `[hostname].local` (default: `esp8266.local`)
+4. Device advertises services: HTTP, WebDAV, GUIKit
+5. Clients can query the network to discover the device and its IP address
+6. Clients connect using `http://esp8266.local/`, `http://esp8266.local/webdav`, etc.
+
+### Service Types
+
+| Service Type | Port | Path | Description |
+|--------------|------|------|-------------|
+| `_http._tcp` | 80 | `/` | HTTP/Web server |
+| `_webdav._tcp` | 80 | `/webdav` | WebDAV file server |
+| `_guikit._tcp` | 8080 | `/gui` | GUIKit management |
+
+Each service includes TXT records with metadata:
+- `model` - Device model (e.g., "ESP8266 NodeMCU")
+- `manufacturer` - Manufacturer (e.g., "Genose.org")
+- `serial` - Serial number
+- `version` - Firmware version
+- `path` - Service path
+
+### Quick Start
+
+```c
+#include "mdns_service.h"
+
+void setup() {
+    // 1. Connect to WiFi first
+    WiFi.begin("SSID", "password");
+    while (WiFi.status() != WL_CONNECTED) {
+        delay(500);
+    }
+
+    // 2. Initialize mDNS with defaults
+    mdns_init(NULL);
+    
+    // Device is now discoverable as esp8266.local
+    Serial.print("Device ready at: http://");
+    Serial.println(mdns_get_fqdn());
+}
+
+void loop() {
+    // Process mDNS events
+    mdns_process();
+}
+```
+
+### Configuration
+
+```c
+mDNSConfig config = {
+    .hostname = "my-esp8266",      // -> my-esp8266.local
+    .enable_http = true,           // Advertise HTTP
+    .enable_webdav = true,        // Advertise WebDAV
+    .enable_guikit = true,         // Advertise GUIKit
+    .http_port = 80,
+    .webdav_port = 80,
+    .guikit_port = 8080,
+    .model = "ESP8266 NodeMCU",
+    .manufacturer = "Genose.org",
+    .serial_number = "DEV-001",
+    .version = "1.0.0"
+};
+
+mdns_init(&config);
+```
+
+### Hostname Management
+
+```c
+// Set custom hostname
+mdns_set_hostname("my-device");
+
+// Get current hostname
+const char* name = mdns_get_hostname();
+
+// Get Fully Qualified Domain Name
+const char* fqdn = mdns_get_fqdn();  // e.g., "my-device.local"
+
+// Validate hostname
+if (mdns_is_valid_hostname("my-device")) {
+    mdns_set_hostname("my-device");
+}
+
+// Generate unique hostname from MAC
+char unique_name[64];
+mdns_generate_unique_hostname("esp", unique_name);
+```
+
+### Custom Services
+
+```c
+// Add a custom service
+mdns_add_service(
+    "ESP8266-API",      // Instance name
+    "_api._tcp",        // Service type
+    8080,              // Port
+    "/api",            // Path
+    "api_version",     // TXT key
+    "1.0"              // TXT value
+);
+
+// Add service with multiple TXT records
+const char* txt_records[] = {
+    "api_version", "1.0",
+    "description", "REST API",
+    NULL
+};
+mdns_add_service_with_txt("ESP8266-API", "_api._tcp", 8080, "/api", txt_records);
+
+// Remove a service
+mdns_remove_service("ESP8266-API", "_api._tcp");
+
+// Remove all custom services
+mdns_remove_all_services();
+```
+
+### Kernel Integration
+
+```c
+// In kernel setup
+void kernel_setup() {
+    // ... other initialization ...
+    
+    // After WiFi connection
+    kernel_mdns_init("GUIKit-Device");
+    
+    // Get URLs
+    char webdav_url[128];
+    mdns_get_webdav_url(webdav_url, sizeof(webdav_url));
+    // -> "http://GUIKit-Device.local/webdav"
+}
+```
+
+### Client Discovery
+
+**Linux (avahi-browser):**
+```bash
+# List all services
+avahi-browse -a -r
+
+# List HTTP services
+avahi-browse -a -r _http._tcp
+
+# List WebDAV services
+avahi-browse -a -r _webdav._tcp
+
+# List GUIKit services
+avahi-browse -a -r _guikit._tcp
+```
+
+**macOS (dns-sd):**
+```bash
+# List all services
+dns-sd -B _services._dns-sd._udp
+
+# List HTTP services
+dns-sd -B _http._tcp
+
+# Resolve specific service
+dns-sd -L "ESP8266" _http._tcp
+```
+
+**Windows:**
+- Use Bonjour Browser utility
+- Or install Bonjour SDK and use `dns-sd`
+
+**Python:**
+```python
+from zeroconf import Zeroconf, ServiceBrowser
+
+class MyListener:
+    def add_service(self, zeroconf, type, name):
+        print(f"Found: {name} ({type})")
+
+zeroconf = Zeroconf()
+listener = MyListener()
+browser = ServiceBrowser(zeroconf, "_http._tcp", listener)
+
+try:
+    input("Press Enter to exit...")
+finally:
+    zeroconf.close()
+```
+
+### Memory Usage
+
+| Component | Size | Notes |
+|-----------|------|-------|
+| mDNS state | ~500 bytes | Hostname, FQDN, config |
+| Custom services | ~64 bytes each | Max 8 services |
+| **Total (max)** | **~1.1KB** | All services |
+
+### Files
+
+| File | Description |
+|------|-------------|
+| `src/system/mdns_service.h` | Header with API |
+| `src/system/mdns_service.c` | Implementation |
+| `docs/MDNS_SERVICE.md` | Full documentation |
+
+### Integration with GUIKit
+
+mDNS is automatically initialized as part of Kernel.bin:
+
+```c
+// kernel_main.cpp
+void setup() {
+    // ... hardware init ...
+    // ... WiFi connection ...
+    
+    // Initialize mDNS
+    kernel_mdns_init("GUIKit-Device");
+    
+    // Start servers
+    start_web_server();
+    start_webdav_server();
+    
+    // Initialize push notifications
+    webdav_push_init(NULL);
+    webdav_push_auth_init(NULL);
+}
+```
+
+### Troubleshooting
+
+**Service not discoverable:**
+1. Verify WiFi is connected before `mdns_init()`
+2. Check firewall allows UDP port 5353 multicast
+3. Verify mDNS is running: `mdns_is_running()`
+4. Test with `avahi-browse -a -r` on Linux
+
+**Name conflict:**
+- Use unique hostnames for each device
+- Include MAC address in hostname
+
+**mDNS not starting:**
+1. Check WiFi connection
+2. Verify hostname is valid
+3. Check for memory constraints
+
+---
+
 ## Troubleshooting
 
 ### Common Issues
@@ -1085,6 +1346,31 @@ gui_memory_strategy_get_stats(&total_ram, &used_ram, &free_ram, &strategy);
 | `webdav_push_rate_limit_record(client_id)` | Record notification |
 | `webdav_push_rate_limit_remaining(client_id)` | Get remaining count |
 
+### mDNS Service Commands
+
+| Function | Description |
+|----------|-------------|
+| `mdns_init(config)` | Initialize mDNS service (NULL for defaults) |
+| `mdns_shutdown()` | Shutdown mDNS service |
+| `mdns_is_running()` | Check if mDNS is active |
+| `mdns_reinit(config)` | Restart mDNS with new configuration |
+| `mdns_set_hostname(name)` | Set device hostname |
+| `mdns_get_hostname()` | Get current hostname |
+| `mdns_get_fqdn()` | Get FQDN (hostname.local) |
+| `mdns_is_valid_hostname(name)` | Validate hostname format |
+| `mdns_generate_unique_hostname(base, buf)` | Generate unique hostname |
+| `mdns_add_service(instance, type, port, path, key, val)` | Add custom service |
+| `mdns_add_service_with_txt(...)` | Add service with TXT records |
+| `mdns_remove_service(instance, type)` | Remove a service |
+| `mdns_remove_all_services()` | Remove all custom services |
+| `mdns_get_service_info(index, info)` | Get service information |
+| `mdns_process()` | Process mDNS events (call in loop) |
+| `mdns_get_error()` | Get last error code |
+| `mdns_error_to_string(err)` | Convert error code to string |
+| `kernel_mdns_init(name)` | Initialize mDNS for kernel |
+| `mdns_get_webdav_url(buf, size)` | Get WebDAV discovery URL |
+| `mdns_get_guikit_url(buf, size)` | Get GUIKit discovery URL |
+
 ---
 
 ## File Reference
@@ -1099,6 +1385,7 @@ gui_memory_strategy_get_stats(&total_ram, &used_ram, &free_ram, &strategy);
 - `docs/SOFTWARE.md` - Software components
 - `docs/NETWORK.md` - Network architecture
 - `docs/WEBDAV_PUSH.md` - WebDAV push notification system
+- `docs/MDNS_SERVICE.md` - mDNS service discovery (Bonjour/Zeroconf)
 - `src/boot/README.md` - Bootloader documentation
 - `etc/GUIKIT_autostart.ini` - Example autostart configuration file
 - `docs/TASK_SWITCHER.md` - Task switcher documentation
@@ -1137,10 +1424,15 @@ gui_memory_strategy_get_stats(&total_ram, &used_ram, &free_ram, &strategy);
 - `src/gui_editor/server/webdav_push_auth.h` - Authentication header
 - `src/gui_editor/server/webdav_push_auth.c` - Authentication implementation
 
+#### mDNS Service
+- `src/system/mdns_service.h` - mDNS header with API
+- `src/system/mdns_service.c` - mDNS implementation
+
 ---
 
 ## Version History
 
+- **Latest**: mDNS service discovery (Bonjour/Zeroconf) for device auto-discovery
 - **Latest**: WebDAV push notification authentication system (Basic, Token, Digest, Anonymous)
 - **Latest**: Task switcher for single-level context switching (A -> B -> back to A)
 - **Latest**: JPEG to RGB conversion example with task switching

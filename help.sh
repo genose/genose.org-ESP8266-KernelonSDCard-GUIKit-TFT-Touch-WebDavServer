@@ -15,6 +15,7 @@ Usage:
   ./help.sh config             - Configuration information
   ./help.sh gui                - GUI loading information
   ./help.sh webdav-push        - WebDAV push notification information
+  ./help.sh mdns               - mDNS service discovery information
   ./help.sh all                - Show all documentation
 
 --------------------------------------------------------------------------------
@@ -27,6 +28,7 @@ Available Commands:
   gui          - Show GUI loading documentation
   huge-gui     - Show huge GUI (500KB) results
   webdav-push  - Show WebDAV push notification documentation
+  mdns         - Show mDNS service discovery documentation
   all          - Show all documentation
 
 --------------------------------------------------------------------------------
@@ -54,6 +56,7 @@ Documentation Files:
   docs/SOFTWARE.md              - Software components
   docs/NETWORK.md               - Network architecture
   docs/WEBDAV_PUSH.md           - WebDAV push notification system
+  docs/MDNS_SERVICE.md          - mDNS service discovery (Bonjour/Zeroconf)
   src/boot/README.md            - Bootloader documentation
   src/gui/demo_huge_gui_result.txt - Huge GUI results
 
@@ -113,6 +116,9 @@ case "$1" in
         ;;
     "webdav-push"|"webdav"|"w")
         cat docs/WEBDAV_PUSH.md
+        ;;
+    "mdns"|"m")
+        cat docs/MDNS_SERVICE.md
         ;;
     "all"|"a")
         echo "Displaying all documentation..."

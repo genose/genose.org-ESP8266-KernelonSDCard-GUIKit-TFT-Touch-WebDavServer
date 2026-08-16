@@ -9,10 +9,11 @@ A complete development framework for building GUI applications on ESP8266 with T
 This project implements a **separated bootloader-kernel architecture** for ESP8266/ESP32 that addresses the platform's limited Flash memory by:
 
 - **Minimal bootloader** in Flash (~8-16KB) that initializes hardware and loads the kernel
-- **Full kernel binary** (`Kernel.bin`) stored on SD card, containing GUIKit, WebDAV server, HTTP server, and Push Notification system
+- **Full kernel binary** (`Kernel.bin`) stored on SD card, containing GUIKit, WebDAV server, HTTP server, Push Notification system, and mDNS service discovery
 - **Dynamic UI loading** from JSON files on SD card
 - **Modular design** with clear separation of concerns
 - **Real-time notifications** via WebDAV Push system with secure authentication
+- **Zero-configuration discovery** via mDNS/Bonjour for device access at `[hostname].local`
 
 ### Key Features
 
@@ -22,7 +23,8 @@ This project implements a **separated bootloader-kernel architecture** for ESP82
 ✅ **Memory Efficiency** – Only loads necessary resources into RAM  
 ✅ **Complete WebDAV Server** – File management with enhanced features  
 ✅ **Touch GUI Framework** – Widget-based UI system with CSS-like styling
-✅ **Push Notifications** – Real-time WebDAV notifications with authentication  
+✅ **Push Notifications** – Real-time WebDAV notifications with authentication
+✅ **mDNS Discovery** – Device auto-discovery via [hostname].local (Bonjour/Zeroconf)  
 
 ---
 
@@ -43,11 +45,47 @@ Detailed architecture documentation is available in the [`docs/`](docs/) directo
 | [about_port_expander.md](about_port_expander.md) | SPI port expander analysis |
 | [about_huge_demo_ram_requirements.md](about_huge_demo_ram_requirements.md) | Huge demo RAM requirements |
 | [WEBDAV_PUSH.md](docs/WEBDAV_PUSH.md) | WebDAV push notification system with authentication |
+| [MDNS_SERVICE.md](docs/MDNS_SERVICE.md) | mDNS service discovery (Bonjour/Zeroconf) |
 | [demo_huge_gui_result.txt](src/gui/demo_huge_gui_result.txt) | Huge GUI memory strategy results |
 
 ---
 
 ## 🎯 New Features
+
+### mDNS Service Discovery
+
+The system includes **mDNS (Bonjour/Zeroconf)** service discovery, allowing devices to be accessed via `[hostname].local` without requiring DNS configuration or `/etc/hosts` entries.
+
+**Key Benefits:**
+- Zero-configuration network discovery
+- Works on Linux (avahi), macOS (Bonjour), Windows (Bonjour service)
+- Automatic IP address resolution
+- Service advertisement for HTTP, WebDAV, and GUIKit
+
+**Quick Start:**
+```c
+#include "mdns_service.h"
+
+// After WiFi connection
+mdns_init(NULL);  // Device now discoverable as esp8266.local
+
+// Clients can connect via:
+// http://esp8266.local/
+// http://esp8266.local/webdav
+// http://esp8266.local/gui
+```
+
+**Client Discovery:**
+```bash
+# Linux
+avahi-browse -a -r _http._tcp
+
+# macOS
+dns-sd -B _http._tcp
+
+# Python
+from zeroconf import Zeroconf, ServiceBrowser
+```
 
 ### Memory Strategy System
 
@@ -548,6 +586,7 @@ The system includes an **enhanced WebDAV server** with the following features:
 - ✅ **Share Links** – Temporary, shareable download links
 - ✅ **Remote Access** – Internet access via port forwarding + DNS
 - ✅ **Push Notifications** – Real-time file change notifications with authentication
+- ✅ **mDNS Discovery** – Zero-config device discovery via [hostname].local
 
 ---
 
@@ -671,6 +710,28 @@ Configuration files are stored in `/system/config/` on the SD card:
 | `/webdav/push/poll` | GET | Long polling endpoint | Required |
 | `/webdav/push/subscribe` | POST | Subscribe to path | Required |
 | `/webdav/push/unsubscribe` | POST | Unsubscribe | Required |
+
+### mDNS Discovery
+
+The device advertises itself via mDNS/Bonjour at `[hostname].local`:
+
+| Service | Type | Port | Path | Description |
+|---------|------|------|------|-------------|
+| HTTP | `_http._tcp` | 80 | `/` | Web server |
+| WebDAV | `_webdav._tcp` | 80 | `/webdav` | File server |
+| GUIKit | `_guikit._tcp` | 8080 | `/gui` | GUI management |
+
+Connect using:
+```bash
+# HTTP
+curl http://esp8266.local/
+
+# WebDAV
+curl http://esp8266.local/webdav/
+
+# GUIKit
+# Open in browser: http://esp8266.local/gui/
+```
 
 ---
 
