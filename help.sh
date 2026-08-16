@@ -18,6 +18,7 @@ Usage:
   ./help.sh webdav-push        - WebDAV push notification information
   ./help.sh mdns               - mDNS service discovery information
   ./help.sh ram                - RAM chip models information
+  ./help.sh costs              - Kernel functionality costs and priorities
   ./help.sh all                - Show all documentation
 
 --------------------------------------------------------------------------------
@@ -33,6 +34,7 @@ Available Commands:
   webdav-push  - Show WebDAV push notification documentation
   mdns         - Show mDNS service discovery documentation
   ram          - Show RAM chip models documentation
+  costs        - Show kernel functionality costs and priorities
   all          - Show all documentation
 
 --------------------------------------------------------------------------------
@@ -55,6 +57,7 @@ Documentation Files:
   README.md                    - Main project documentation
   HELP.md                      - Detailed help guide
   docs/memory_strategy_config.md - Memory strategy configuration
+  docs/KERNEL_FUNCTIONALITY_COSTS.md - Kernel functionality RAM costs & priorities
   docs/ARCHITECTURE.md          - System architecture
   docs/HARDWARE.md              - Hardware setup
   docs/SOFTWARE.md              - Software components
@@ -157,6 +160,20 @@ case "$1" in
         echo "  - GUIKIT_HW_ESP32_LY68L6400"
         echo ""
         echo "See about_ram_expansion.md for full specifications"
+        ;;
+    "costs"|"c")
+        echo "==============================================================================="
+        echo "              Kernel Functionality Costs & Priority Documentation"
+        echo "==============================================================================="
+        echo ""
+        echo "Complete breakdown of RAM consumption for each kernel functionality:"
+        echo ""
+        echo "Key Priorities:"
+        echo "  - GUIKit Core: External RAM first (performance critical)"
+        echo "  - Image Converters: Internal -> External -> Swap (decode speed priority)"
+        echo "  - Other components: Follow STOP-at-first-success strategy"
+        echo ""
+        echo "See docs/KERNEL_FUNCTIONALITY_COSTS.md for complete tables and analysis"
         ;;
     "gui"|"g")
         echo "GUI Loading Documentation"

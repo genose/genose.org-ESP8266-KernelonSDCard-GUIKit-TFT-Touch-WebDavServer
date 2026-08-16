@@ -41,6 +41,7 @@ Detailed architecture documentation is available in the [`docs/`](docs/) directo
 | [DATA_FLOW.md](docs/DATA_FLOW.md) | Data flow diagrams and sequences |
 | [MEMORY_MANAGEMENT.md](docs/MEMORY_MANAGEMENT.md) | Objective-C style memory management for ESP8266 |
 | [memory_strategy_config.md](docs/memory_strategy_config.md) | Memory strategy configuration with config struct |
+| [KERNEL_FUNCTIONALITY_COSTS.md](docs/KERNEL_FUNCTIONALITY_COSTS.md) | Kernel functionality RAM costs and priorities |
 | [about_ram_expansion.md](about_ram_expansion.md) | External RAM expansion analysis |
 | [about_port_expander.md](about_port_expander.md) | SPI port expander analysis |
 | [about_huge_demo_ram_requirements.md](about_huge_demo_ram_requirements.md) | Huge demo RAM requirements |
@@ -98,10 +99,16 @@ The GUIKit now features a **hierarchical memory strategy** with explicit STOP-at
 4. Else => FAILED
 ```
 
+**Component Loading Priorities:**
+- **GUIKit Core, Rendering Engine, Widget Definitions, Touch Handling** → External RAM first (performance critical)
+- **Image Converters (PNG, JPEG, TIFF)** → **Internal RAM → External RAM → SD Swap** (decode speed priority)
+- **Other components** → Follow default STOP-at-first-success strategy
+
 **Key Components:**
 - `memory_strategy_config_t` in `guikit_hw_config.h` - Configurable thresholds and behavior flags
 - `gui_memory_strategy.h/cpp` - Strategy selection and loading implementation
 - `demo_huge_gui_result.txt` - Results for 500KB GUI with different hardware configurations
+- `docs/KERNEL_FUNCTIONALITY_COSTS.md` - Complete RAM cost breakdown per functionality
 
 **Configuration Options:**
 - `external_ram_min_size` - Minimum GUI size to use external RAM (default: 4KB)

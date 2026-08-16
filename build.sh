@@ -5,7 +5,8 @@
 # 
 # Builds bootloader, kernel, and prepares SD card for GUIKit system.
 # Supports ESP8266 and ESP32 with SMP detection, RAM freeze/thaw, 
-# task switching, task progress display, and WebDAV support.
+# task switching, task progress display, WebDAV support, and image converters
+# with INTERNAL->EXTERNAL->SWAP priority.
 # 
 # USAGE:
 #   ./build.sh [command] [options]
@@ -155,6 +156,7 @@ FEATURES:
   SMP detection for ESP32 dual-core support
   Autostart configuration via /etc/GUIKIT_autostart.ini
   Memory strategy: External RAM -> SD swap -> Internal RAM (STOP at first success)
+  Image converters: INTERNAL -> EXTERNAL -> SWAP priority (PNG, JPEG, TIFF)
   RAM length detection: 1-2 test passes to detect wiring errors with WTM warnings
   Task switcher: Single-level context switching (A -> B -> back to A)
   Task progress: TFT text display for heavy tasks with minimal RAM usage
@@ -163,6 +165,7 @@ FEATURES:
   WebDAV push notifications with authentication (SSE, WebSocket, Long Polling)
   Project structure: (project_name).GUIKIT directories
   RAM Chip Support: 23LCxxx SRAM, LY68L6400 SRAM, CY15Vxxx FRAM, ISSI IS66WVS5128 PSRAM
+  Decode strategies: DECODE_INTERNAL_*, DECODE_EXTERNAL_*, DECODE_SD_SWAP
 
 DEPENDENCIES:
   - PlatformIO CLI: https://platformio.org/install/cli
