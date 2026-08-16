@@ -115,6 +115,8 @@ Total Available: ~50 KB
 | **SD Card Caching** | ⭐⭐⭐⭐ | Low | $0 | N/A | Already implemented |
 | **SPI SRAM (23LC1024)** | ⭐⭐⭐⭐⭐ | Medium | ~$3 | 128 KB | Framebuffer, cache |
 | **FRAM (MB85RC256V)** | ⭐⭐⭐ | Medium | ~$5 | 32 KB | Non-volatile state |
+| **FRAM (CY15V102QN)** | ⭐⭐⭐ | Medium | ~$12 | 128 KB | Industrial non-volatile cache |
+| **FRAM (CY15V104QSN)** | ⭐⭐⭐ | Medium | ~$20 | 512 KB | Industrial large persistent cache |
 | **ESP32 Migration** | ⭐⭐⭐ | High | ~$10 | 8 MB+ | Long-term solution |
 
 ---
@@ -393,6 +395,8 @@ FRAM is non-volatile memory that combines the speed of RAM with the persistence 
 | MB85RS1MV | 128 KB | SPI | 20 MHz | 10^14 cycles | 10 years @ 85°C |
 | CY15B104Q | 512 KB | SPI | 40 MHz | 10^14 cycles | 10 years @ 85°C |
 | CY15V1024 | 1 MB | SPI | 40 MHz | 10^14 cycles | 10 years @ 85°C |
+| **CY15V102QN** | **128 KB** | **SPI (Quad)** | **40 MHz** | **10^14 cycles** | **10 years @ 85°C** |
+| **CY15V104QSN** | **512 KB** | **SPI (Quad)** | **40 MHz** | **10^14 cycles** | **10 years @ 85°C** |
 
 ### Advantages
 
@@ -688,6 +692,8 @@ GND -> GND, HOLD, WP
 | **23LCV1024** | 128 KB | 20 MHz | Yes | Low | ~$3.50 | 128 KB | Framebuffer |
 | **FRAM (32KB)** | 32 KB | 20 MHz | No | Medium | ~$5 | 32 KB | Config, state |
 | **FRAM (128KB)** | 128 KB | 20 MHz | No | Medium | ~$10 | 128 KB | Persistent cache |
+| **CY15V102QN** | **128 KB** | **40 MHz** | **No** | **Medium** | **~$12** | **128 KB** | **Config, state (Industrial)** |
+| **CY15V104QSN** | **512 KB** | **40 MHz** | **No** | **Medium** | **~$20** | **512 KB** | **Large persistent cache (Industrial)** |
 | **PSRAM (8MB)** | 8 MB | 40 MHz | Yes | High | ~$5 | 8 MB | ESP32 only |
 | **ESP32** | 8 MB+ | Fast | Yes | High | ~$10 | 8 MB+ | Full upgrade |
 
