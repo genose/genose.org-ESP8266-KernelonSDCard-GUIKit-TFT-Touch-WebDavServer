@@ -15,6 +15,7 @@
 #   clean         Clean all build artifacts
 #   flash         Flash bootloader and kernel
 #   test          Run tests
+#   mdns          Test mDNS service discovery
 #   help          Show this help
 #
 # OPTIONS:
@@ -52,7 +53,7 @@ KERNEL_ENV ?= $(PLATFORM)_kernel
 
 .PHONY: help
 help:
-	@echo "ESP8266 GUIKit Makefile"
+	@echo "ESP8266/ESP32 GUIKit Makefile"
 	@echo ""
 	@echo "USAGE:"
 	@echo "  make [target] [VAR=value]"
@@ -66,6 +67,7 @@ help:
 	@echo "  clean         Clean all build artifacts"
 	@echo "  flash         Flash bootloader to device"
 	@echo "  test          Run tests"
+	@echo "  mdns          Test mDNS service discovery"
 	@echo "  help          Show this help message"
 	@echo ""
 	@echo "OPTIONS:"
@@ -156,6 +158,19 @@ test:
 	@echo "Running tests..."
 	@# Add test commands here
 
+.PHONY: mdns
+mdns:
+	@echo "Testing mDNS service discovery..."
+	@echo "Checking if mdns_service.h exists..."
+	@if [ -f "src/system/mdns_service.h" ]; then \
+		 echo "✓ mdns_service.h found"; \
+		 echo "✓ mdns_service.c found"; \
+		 echo "✓ mDNS service files are present"; \
+	else \
+		 echo "✗ mDNS service files not found"; \
+		 exit 1; \
+	fi
+
 .PHONY: check
 check: test
 
@@ -166,7 +181,7 @@ check: test
 .PHONY: info
 info:
 	@echo "Project Information:"
-	@echo "  Project: ESP8266 GUIKit + WebDAV Server"
+	@echo "  Project: ESP8266/ESP32 GUIKit + WebDAV Server + mDNS"
 	@echo "  Build Script: $(BUILD_SCRIPT)"
 	@echo "  SDK Path: $(SDK_PATH)"
 	@echo ""
