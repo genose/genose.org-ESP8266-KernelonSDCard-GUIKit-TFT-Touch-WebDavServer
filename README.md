@@ -6,12 +6,13 @@ A complete development framework for building GUI applications on ESP8266 with T
 
 ## 🎯 Overview
 
-This project implements a **separated bootloader-kernel architecture** for ESP8266 that addresses the platform's limited Flash memory by:
+This project implements a **separated bootloader-kernel architecture** for ESP8266/ESP32 that addresses the platform's limited Flash memory by:
 
 - **Minimal bootloader** in Flash (~8-16KB) that initializes hardware and loads the kernel
-- **Full kernel binary** (`Kernel.bin`) stored on SD card, containing GUIKit, WebDAV server, and HTTP server
+- **Full kernel binary** (`Kernel.bin`) stored on SD card, containing GUIKit, WebDAV server, HTTP server, and Push Notification system
 - **Dynamic UI loading** from JSON files on SD card
 - **Modular design** with clear separation of concerns
+- **Real-time notifications** via WebDAV Push system with secure authentication
 
 ### Key Features
 
@@ -20,7 +21,8 @@ This project implements a **separated bootloader-kernel architecture** for ESP82
 ✅ **External UI Design** – UIs generated externally as JSON files  
 ✅ **Memory Efficiency** – Only loads necessary resources into RAM  
 ✅ **Complete WebDAV Server** – File management with enhanced features  
-✅ **Touch GUI Framework** – Widget-based UI system with CSS-like styling  
+✅ **Touch GUI Framework** – Widget-based UI system with CSS-like styling
+✅ **Push Notifications** – Real-time WebDAV notifications with authentication  
 
 ---
 
@@ -40,6 +42,7 @@ Detailed architecture documentation is available in the [`docs/`](docs/) directo
 | [about_ram_expansion.md](about_ram_expansion.md) | External RAM expansion analysis |
 | [about_port_expander.md](about_port_expander.md) | SPI port expander analysis |
 | [about_huge_demo_ram_requirements.md](about_huge_demo_ram_requirements.md) | Huge demo RAM requirements |
+| [WEBDAV_PUSH.md](docs/WEBDAV_PUSH.md) | WebDAV push notification system with authentication |
 | [demo_huge_gui_result.txt](src/gui/demo_huge_gui_result.txt) | Huge GUI memory strategy results |
 
 ---
@@ -260,6 +263,121 @@ ESP8266/
 
 ---
 
+## 📡 WebDAV Push Notifications
+
+The system now includes a **real-time push notification system** that enables Linux/macOS WebDAV clients to receive immediate notifications when files change on the ESP8266/ESP32 device.
+
+### Features
+
+**Transport Mechanisms:**
+- ✅ **Server-Sent Events (SSE)** - HTTP-based streaming for modern clients
+- ✅ **WebSocket** - Persistent bidirectional connections
+- ✅ **Long Polling** - Fallback for legacy clients
+
+**Authentication System:**
+- ✅ **Multiple Auth Methods** - Basic (username/password), Token, Digest, Anonymous
+- ✅ **Permission System** - READ, WRITE, ADMIN flags with granular control
+- ✅ **Session Management** - 16 max sessions, 5-minute timeout, lockout after 5 failed attempts
+- ✅ **Token Management** - 32 max tokens, 24-hour expiry, revocation support
+- ✅ **Rate Limiting** - 60 notifications/minute per client to prevent abuse
+- ✅ **Default Admin** - `admin`/`admin` with full permissions
+
+**Event Types:**
+- File created, modified, deleted, moved
+- Folder created, deleted
+- Project updates
+- GUI updates
+- System events
+- Custom events
+
+**Key Benefits:**
+- Real-time updates for Linux (davfs2, nautilus) and macOS (Finder) clients
+- Secure authentication prevents unauthorized access
+- Low memory footprint (~5KB max for all clients and sessions)
+- Multiple transport options for compatibility
+- JSON-based notifications (~300 bytes each)
+
+### Quick Example
+
+```c
+#include "webdav_push.h"
+#include "webdav_push_auth.h"
+
+// Initialize
+webdav_push_init(NULL);
+webdav_push_auth_init(NULL);
+
+// Register client
+uint32_t client_id = webdav_push_client_register(WEBDAV_PUSH_CLIENT_SSE, "/");
+
+// Authenticate
+webdav_push_auth_login(client_id, "admin", "admin");
+
+// Watch a path
+webdav_push_watch_add("/projects", true, WEBDAV_PUSH_FILE_ALL);
+
+// Check for changes (call periodically)
+webdav_push_check_changes();
+```
+
+### HTTP Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/webdav/push/sse` | SSE event stream |
+| GET | `/webdav/push/ws` | WebSocket connection |
+| GET | `/webdav/push/poll` | Long polling |
+| POST | `/webdav/push/subscribe` | Subscribe to path |
+| POST | `/webdav/push/unsubscribe` | Unsubscribe |
+
+### Default Watched Paths
+
+The system automatically watches:
+- `/gui` - GUI project changes
+- `/projects` - User project changes
+- `/tmp/task_comm` - Task communication files
+
+### Files
+
+| File | Description |
+|------|-------------|
+| `src/gui_editor/server/webdav_push.h` | Push notification API |
+| `src/gui_editor/server/webdav_push.c` | Push notification implementation |
+| `src/gui_editor/server/webdav_push_auth.h` | Authentication API |
+| `src/gui_editor/server/webdav_push_auth.c` | Authentication implementation |
+
+### Client Integration
+
+**Linux (davfs2 with inotify):**
+```bash
+# Mount WebDAV
+mount.davfs http://esp8266.local/webdav /mnt/webdav
+
+# Monitor for changes
+inotifywait -m -r -e create -e modify -e delete /mnt/webdav | \
+  while read path action file; do
+    echo "Change: $action $file"
+  done
+```
+
+**macOS (Finder):**
+1. Connect to WebDAV: `Go > Connect to Server > http://esp8266.local/webdav`
+2. Finder automatically refreshes on push notifications
+
+**Python SSE Client:**
+```python
+import requests
+import sseclient
+
+url = 'http://esp8266.local:8080/webdav/push/sse'
+for event in sseclient.SSEClient(url):
+    import json
+    data = json.loads(event.data)
+    print(f"Event: {data['type']} at {data['path']}")
+```
+
+---
+
 ## 📖 Widget System
 
 The GUIKit provides a **CSS-like widget system** with the following types:
@@ -429,6 +547,7 @@ The system includes an **enhanced WebDAV server** with the following features:
 - ✅ **History Tracking** – Audit trail of file modifications
 - ✅ **Share Links** – Temporary, shareable download links
 - ✅ **Remote Access** – Internet access via port forwarding + DNS
+- ✅ **Push Notifications** – Real-time file change notifications with authentication
 
 ---
 
@@ -542,6 +661,16 @@ Configuration files are stored in `/system/config/` on the SD card:
 | `/remote_access` | POST | Configure remote access |
 | `/remote_url` | GET | Get remote access URL |
 | `/s/{token}` | GET | Access shared file |
+
+### Push Notification API
+
+| Endpoint | Method | Description | Authentication |
+|----------|--------|-------------|----------------|
+| `/webdav/push/sse` | GET | Server-Sent Events stream | Required |
+| `/webdav/push/ws` | GET | WebSocket connection | Required |
+| `/webdav/push/poll` | GET | Long polling endpoint | Required |
+| `/webdav/push/subscribe` | POST | Subscribe to path | Required |
+| `/webdav/push/unsubscribe` | POST | Unsubscribe | Required |
 
 ---
 
