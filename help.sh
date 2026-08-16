@@ -16,6 +16,7 @@ Usage:
   ./help.sh gui                - GUI loading information
   ./help.sh webdav-push        - WebDAV push notification information
   ./help.sh mdns               - mDNS service discovery information
+  ./help.sh ram                - RAM chip models information
   ./help.sh all                - Show all documentation
 
 --------------------------------------------------------------------------------
@@ -29,6 +30,7 @@ Available Commands:
   huge-gui     - Show huge GUI (500KB) results
   webdav-push  - Show WebDAV push notification documentation
   mdns         - Show mDNS service discovery documentation
+  ram          - Show RAM chip models documentation
   all          - Show all documentation
 
 --------------------------------------------------------------------------------
@@ -57,6 +59,7 @@ Documentation Files:
   docs/NETWORK.md               - Network architecture
   docs/WEBDAV_PUSH.md           - WebDAV push notification system
   docs/MDNS_SERVICE.md          - mDNS service discovery (Bonjour/Zeroconf)
+  about_ram_expansion.md        - RAM chip models & expansion guide
   src/boot/README.md            - Bootloader documentation
   src/gui/demo_huge_gui_result.txt - Huge GUI results
 
@@ -94,8 +97,46 @@ case "$1" in
         echo "  - GUIKIT_HW_ESP8266_HUGE_DEMO"
         echo "  - GUIKIT_HW_ESP8266_EXPANDER"
         echo "  - GUIKIT_HW_ESP32_PREMIUM"
+        echo "  - GUIKIT_HW_ESP8266_LY68L6400 (512KB Lyontek SRAM)"
+        echo "  - GUIKIT_HW_ESP8266_CY15V104QSN (512KB Cypress FRAM)"
+        echo "  - GUIKIT_HW_ESP32_ISSI_64MB_PSRAM (64MB ISSI PSRAM)"
+        echo "  - GUIKIT_HW_ESP32_LY68L6400 (512KB Lyontek SRAM)"
         echo ""
         echo "See guikit_hw_config.h for details"
+        ;;
+    "ram"|"r")
+        echo "================================================================================"
+        echo "                    RAM Chip Models - Supported Chips"
+        echo "================================================================================"
+        echo ""
+        echo "All models work with both ESP8266 (via SPI) and ESP32 (via SPI/native):"
+        echo ""
+        echo "SPI SRAM:"
+        echo "  - 23LC512 (64 KB, 20 MHz) - Budget"
+        echo "  - 23LC1024 (128 KB, 20 MHz) - RECOMMENDED"
+        echo "  - 23LCV1024 (128 KB, 20 MHz) - Low-voltage"
+        echo "  - Lyontek LY68L6400 (512 KB, 50 MHz) - Large cache"
+        echo ""
+        echo "FRAM (Non-Volatile):"
+        echo "  - MB85RS256B (32 KB, 20 MHz) - Basic"
+        echo "  - CY15V102QN (128 KB, 40 MHz) - Industrial"
+        echo "  - CY15V104QSN (512 KB, 40 MHz) - Industrial"
+        echo ""
+        echo "PSRAM (ESP32 Native):"
+        echo "  - APS6404 (1 MB, 40 MHz) - Entry-level"
+        echo "  - APS1604 (2 MB, 40 MHz) - Mid-range"
+        echo "  - APS3204 (4 MB, 40 MHz) - High-capacity"
+        echo "  - W9812G6KH (8 MB, 80 MHz) - Maximum"
+        echo "  - ISSI IS66WVS5128ALL (64 MB, 100 MHz) - Industrial"
+        echo "  - ISSI IS66WVS5128BLL (64 MB, 100 MHz) - Industrial"
+        echo ""
+        echo "Configuration Presets in guikit_hw_config.h:"
+        echo "  - GUIKIT_HW_ESP8266_LY68L6400"
+        echo "  - GUIKIT_HW_ESP8266_CY15V104QSN"
+        echo "  - GUIKIT_HW_ESP32_ISSI_64MB_PSRAM"
+        echo "  - GUIKIT_HW_ESP32_LY68L6400"
+        echo ""
+        echo "See about_ram_expansion.md for full specifications"
         ;;
     "gui"|"g")
         echo "GUI Loading Documentation"

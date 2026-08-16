@@ -93,6 +93,57 @@ For a **500KB GUI**, the results are:
 
 See `src/gui/demo_huge_gui_result.txt` for detailed flow diagrams.
 
+### Supported RAM Chip Models
+
+**All models work with both ESP8266 (via SPI) and ESP32 (via SPI or native interface):**
+
+**SPI SRAM:**
+| Model | Size | Speed | Price | Use Case |
+|-------|------|-------|-------|----------|
+| 23LC512 | 64 KB | 20 MHz | ~$1.50 | Small cache |
+| **23LC1024** | **128 KB** | **20 MHz** | **~$3.00** | **Recommended** |
+| 23LCV1024 | 128 KB | 20 MHz | ~$3.50 | Low-voltage |
+| **Lyontek LY68L6400** | **512 KB** | **50 MHz** | **~$4.00** | **Large cache** |
+
+**FRAM (Non-Volatile):**
+| Model | Size | Speed | Price | Use Case |
+|-------|------|-------|-------|----------|
+| MB85RS256B | 32 KB | 20 MHz | ~$5 | Config storage |
+| **CY15V102QN** | **128 KB** | **40 MHz** | **~$12** | **Industrial** |
+| **CY15V104QSN** | **512 KB** | **40 MHz** | **~$20** | **Industrial** |
+
+**PSRAM (ESP32 Native):**
+| Model | Size | Speed | Price | Use Case |
+|-------|------|-------|-------|----------|
+| APS6404 | 1 MB | 40 MHz | ~$3 | Entry-level |
+| APS1604 | 2 MB | 40 MHz | ~$5 | Mid-range |
+| APS3204 | 4 MB | 40 MHz | ~$8 | High-capacity |
+| W9812G6KH | 8 MB | 80 MHz | ~$10 | Maximum |
+| **ISSI IS66WVS5128ALL** | **64 MB** | **100 MHz** | **~$15** | **Industrial** |
+| **ISSI IS66WVS5128BLL** | **64 MB** | **100 MHz** | **~$15** | **Industrial** |
+
+**Configuration Presets:**
+```c
+// ESP8266 with Lyontek LY68L6400 (512KB SRAM)
+GUIKIT_HW_ESP8266_LY68L6400
+
+// ESP8266 with Cypress CY15V104QSN (512KB FRAM)
+GUIKIT_HW_ESP8266_CY15V104QSN
+
+// ESP32 with ISSI IS66WVS5128ALL (64MB PSRAM)
+GUIKIT_HW_ESP32_ISSI_64MB_PSRAM
+
+// ESP32 with Lyontek LY68L6400 (512KB SRAM)
+GUIKIT_HW_ESP32_LY68L6400
+
+// Union configs also available:
+GUIKIT_HW_UNION_ESP8266_LY68L6400
+GUIKIT_HW_UNION_ESP8266_CY15V104QSN
+GUIKIT_HW_UNION_ESP32_ISSI_64MB_PSRAM
+GUIKIT_HW_UNION_ESP32_LY68L6400
+GUIKIT_HW_UNION_ESP32_CY15V104QSN
+```
+
 ---
 
 ## Bootloader

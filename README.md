@@ -148,6 +148,39 @@ A **hardware detection bootloader** that automatically:
 | Touchscreen | D1 | Interrupt (IRQ) |
 | SD Card | D5 | Chip Select (CS) |
 
+### Optional External RAM Models
+
+**SPI SRAM (ESP8266/ESP32):**
+| Model | Size | Speed | Voltage | Package | Price | Notes |
+|-------|------|-------|---------|---------|-------|-------|
+| 23LC512 | 64 KB | 20 MHz | 2.5-5.5V | SOIC-8 | ~$1.50 | Budget |
+| **23LC1024** | **128 KB** | **20 MHz** | **2.5-5.5V** | **SOIC-8** | **~$3.00** | **Recommended** |
+| 23LCV1024 | 128 KB | 20 MHz | 1.7-5.5V | SOIC-8 | ~$3.50 | Low-voltage |
+| **Lyontek LY68L6400** | **512 KB** | **50 MHz** | **2.7-3.6V** | **SOIC-8** | **~$4.00** | **Large cache** |
+
+**FRAM - Non-Volatile (ESP8266/ESP32):**
+| Model | Size | Speed | Interface | Price | Notes |
+|-------|------|-------|-----------|-------|-------|
+| MB85RS256B | 32 KB | 20 MHz | SPI | ~$5 | Basic |
+| **CY15V102QN** | **128 KB** | **40 MHz** | **SPI Quad** | **~$12** | **Industrial** |
+| **CY15V104QSN** | **512 KB** | **40 MHz** | **SPI Quad** | **~$20** | **Industrial** |
+
+**PSRAM (ESP32 Native):**
+| Model | Size | Speed | Interface | Price | Notes |
+|-------|------|-------|-----------|-------|-------|
+| APS6404 | 1 MB | 40 MHz | Quad SPI | ~$3 | Entry-level |
+| APS1604 | 2 MB | 40 MHz | Quad SPI | ~$5 | Mid-range |
+| APS3204 | 4 MB | 40 MHz | Quad SPI | ~$8 | High-capacity |
+| W9812G6KH | 8 MB | 80 MHz | Quad SPI | ~$10 | Maximum |
+| **ISSI IS66WVS5128ALL** | **64 MB** | **100 MHz** | **Octal SPI** | **~$15** | **Industrial** |
+| **ISSI IS66WVS5128BLL** | **64 MB** | **100 MHz** | **Octal SPI** | **~$15** | **Industrial** |
+
+**Configuration Presets:**
+- `GUIKIT_HW_ESP8266_LY68L6400` - ESP8266 + 512KB Lyontek SRAM
+- `GUIKIT_HW_ESP8266_CY15V104QSN` - ESP8266 + 512KB Cypress FRAM
+- `GUIKIT_HW_ESP32_ISSI_64MB_PSRAM` - ESP32 + 64MB ISSI PSRAM
+- `GUIKIT_HW_ESP32_LY68L6400` - ESP32 + 512KB Lyontek SRAM
+
 ---
 
 ## 📦 Project Structure

@@ -184,6 +184,7 @@ info:
 	@echo "  Project: ESP8266/ESP32 GUIKit + WebDAV Server + mDNS"
 	@echo "  Build Script: $(BUILD_SCRIPT)"
 	@echo "  SDK Path: $(SDK_PATH)"
+	@echo "  Supported RAM: 23LCxxx, LY68L6400, CY15Vxxx, ISSI IS66WVS5128"
 	@echo ""
 	@./build.sh version
 

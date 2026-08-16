@@ -160,6 +160,7 @@ FEATURES:
   mDNS service discovery (Bonjour/Zeroconf) for device auto-discovery
   WebDAV push notifications with authentication (SSE, WebSocket, Long Polling)
   Project structure: (project_name).GUIKIT directories
+  RAM Chip Support: 23LCxxx SRAM, LY68L6400 SRAM, CY15Vxxx FRAM, ISSI IS66WVS5128 PSRAM
 
 DEPENDENCIES:
   - PlatformIO CLI: https://platformio.org/install/cli
