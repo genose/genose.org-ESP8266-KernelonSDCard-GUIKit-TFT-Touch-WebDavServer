@@ -65,7 +65,10 @@ EOF
 
 echo ""
 case "$1" in
-    "memory"|"m")
+    "mdns"|"m")
+        cat docs/MDNS_SERVICE.md
+        ;;
+    "memory")
         cat docs/memory_strategy_config.md
         ;;
     "bootloader"|"b")
@@ -116,9 +119,6 @@ case "$1" in
         ;;
     "webdav-push"|"webdav"|"w")
         cat docs/WEBDAV_PUSH.md
-        ;;
-    "mdns"|"m")
-        cat docs/MDNS_SERVICE.md
         ;;
     "all"|"a")
         echo "Displaying all documentation..."
