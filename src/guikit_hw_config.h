@@ -376,6 +376,130 @@ extern const guikit_hw_config_t GUIKIT_HW_ESP32_DEFAULT;
     .debug_mode = false
 }
 
+// ESP32 with ISSI IS66WVS5128ALL (64MB PSRAM) - Industrial
+#define GUIKIT_HW_ESP32_ISSI_64MB_PSRAM \
+{ \
+    .is_esp8266 = false, \
+    .is_esp32 = true, \
+    .ram = { \
+        .internal = true, \
+        .bank_count = 1, \
+        .bank = { \
+            {GUIKIT_RAM_PSRAM, 64 * 1024 * 1024, 255, true}  // 64MB ISSI PSRAM \
+        } \
+    }, \
+    .spi = { \
+        .expander = false, \
+        .bank_count = 3, \
+        .bank = { \
+            {GUIKIT_SPI_DEVICE, GUIKIT_EXPANDER_NONE, 5, 255, true},    // TFT CS
+            {GUIKIT_SPI_DEVICE, GUIKIT_EXPANDER_NONE, 21, 255, true},   // Touch CS
+            {GUIKIT_SPI_DEVICE, GUIKIT_EXPANDER_NONE, 13, 255, true}    // SD CS
+        }, \
+        .sck_pin = 18, \
+        .mosi_pin = 23, \
+        .miso_pin = 19, \
+        .max_speed_mhz = 100  // Octal SPI for high-speed PSRAM \
+    }, \
+    .display = {320, 240, 16, true},  // 16bpp
+    .use_sd_card = true,
+    .use_webdav = true,
+    .debug_mode = false
+}
+
+// ESP32 with Lyontek LY68L6400 (512KB SRAM) + TFT + Touch
+#define GUIKIT_HW_ESP32_LY68L6400 \
+{ \
+    .is_esp8266 = false, \
+    .is_esp32 = true, \
+    .ram = { \
+        .internal = true, \
+        .bank_count = 1, \
+        .bank = { \
+            {GUIKIT_RAM_SRAM, 512 * 1024, 5, true}  // 512KB Lyontek SRAM \
+        } \
+    }, \
+    .spi = { \
+        .expander = false, \
+        .bank_count = 3, \
+        .bank = { \
+            {GUIKIT_SPI_DEVICE, GUIKIT_EXPANDER_NONE, 15, 255, true},   // TFT CS
+            {GUIKIT_SPI_DEVICE, GUIKIT_EXPANDER_NONE, 4, 255, true},    // Touch CS
+            {GUIKIT_SPI_DEVICE, GUIKIT_EXPANDER_NONE, 13, 255, true}    // SD CS
+        }, \
+        .sck_pin = 14, \
+        .mosi_pin = 13, \
+        .miso_pin = 12, \
+        .max_speed_mhz = 50  // LY68L6400 supports 50 MHz \
+    }, \
+    .display = {320, 240, 16, true},  // 16bpp
+    .use_sd_card = true,
+    .use_webdav = true,
+    .debug_mode = false
+}
+
+// ESP8266 with Lyontek LY68L6400 (512KB SRAM) - Optimized for large GUI
+#define GUIKIT_HW_ESP8266_LY68L6400 \
+{ \
+    .is_esp8266 = true, \
+    .is_esp32 = false, \
+    .ram = { \
+        .internal = true, \
+        .bank_count = 1, \
+        .bank = { \
+            {GUIKIT_RAM_SRAM, 512 * 1024, 16, true}  // 512KB Lyontek SRAM on D0 \
+        } \
+    }, \
+    .spi = { \
+        .expander = false, \
+        .bank_count = 3, \
+        .bank = { \
+            {GUIKIT_SPI_DEVICE, GUIKIT_EXPANDER_NONE, 15, 255, true},   // TFT CS (D8)
+            {GUIKIT_SPI_DEVICE, GUIKIT_EXPANDER_NONE, 4, 255, true},    // Touch CS (D2)
+            {GUIKIT_SPI_DEVICE, GUIKIT_EXPANDER_NONE, 5, 255, true}     // SD CS (D1)
+        }, \
+        .sck_pin = 14,  // D5
+        .mosi_pin = 13, // D7
+        .miso_pin = 12, // D6
+        .max_speed_mhz = 20  // ESP8266 SPI limit \
+    }, \
+    .display = {320, 240, 4, true},  // 4bpp for ESP8266
+    .use_sd_card = true,
+    .use_webdav = true,
+    .debug_mode = false
+}
+
+// ESP8266 with CY15V104QSN (512KB FRAM) - Non-volatile storage
+#define GUIKIT_HW_ESP8266_CY15V104QSN \
+{ \
+    .is_esp8266 = true, \
+    .is_esp32 = false, \
+    .ram = { \
+        .internal = true, \
+        .bank_count = 1, \
+        .bank = { \
+            {GUIKIT_RAM_FRAM, 512 * 1024, 16, true}  // 512KB Cypress FRAM on D0 \
+        } \
+    }, \
+    .spi = { \
+        .expander = false, \
+        .bank_count = 3, \
+        .bank = { \
+            {GUIKIT_SPI_DEVICE, GUIKIT_EXPANDER_NONE, 15, 255, true},   // TFT CS (D8)
+            {GUIKIT_SPI_DEVICE, GUIKIT_EXPANDER_NONE, 4, 255, true},    // Touch CS (D2)
+            {GUIKIT_SPI_DEVICE, GUIKIT_EXPANDER_NONE, 5, 255, true}     // SD CS (D1)
+        }, \
+        .sck_pin = 14,  // D5
+        .mosi_pin = 13, // D7
+        .miso_pin = 12, // D6
+        .max_speed_mhz = 40  // FRAM supports 40 MHz \
+    }, \
+    .display = {320, 240, 4, true},  // 4bpp for ESP8266
+    .use_sd_card = true,
+    .use_webdav = true,
+    .debug_mode = false
+}
+
 // ============================================================================
 // Helper Functions
 // ============================================================================

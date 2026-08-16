@@ -61,6 +61,44 @@ typedef enum {
 } guikit_ram_type_t;
 
 // ============================================================================
+// Specific RAM Chip Models
+// ============================================================================
+
+typedef enum {
+    GUIKIT_SRAM_NONE = 0,
+    GUIKIT_SRAM_23LC512,       // 64 KB
+    GUIKIT_SRAM_23LC1024,      // 128 KB - Recommended
+    GUIKIT_SRAM_23LCV1024,     // 128 KB - Low voltage
+    GUIKIT_SRAM_23K256,        // 32 KB
+    GUIKIT_SRAM_23K640,        // 64 KB
+    GUIKIT_SRAM_23K1024,       // 128 KB
+    GUIKIT_SRAM_LY68L6400,     // 512 KB - Lyontek
+    GUIKIT_SRAM_CY15V102QN,    // 128 KB - Cypress FRAM (SPI)
+    GUIKIT_SRAM_CY15V104QSN    // 512 KB - Cypress FRAM (SPI)
+} guikit_sram_model_t;
+
+typedef enum {
+    GUIKIT_PSRAM_NONE = 0,
+    GUIKIT_PSRAM_APS6404,       // 1 MB
+    GUIKIT_PSRAM_APS1604,       // 2 MB
+    GUIKIT_PSRAM_APS3204,       // 4 MB
+    GUIKIT_PSRAM_W9812G6KH,    // 8 MB
+    GUIKIT_PSRAM_ISSI_IS66WVS5128ALL,  // 64 MB - Industrial
+    GUIKIT_PSRAM_ISSI_IS66WVS5128BLL   // 64 MB - Industrial
+} guikit_psram_model_t;
+
+typedef enum {
+    GUIKIT_FRAM_NONE = 0,
+    GUIKIT_FRAM_MB85RS256B,    // 32 KB - SPI
+    GUIKIT_FRAM_MB85RS64B,     // 64 KB - SPI
+    GUIKIT_FRAM_MB85RS1MV,     // 128 KB - SPI
+    GUIKIT_FRAM_CY15B104Q,     // 512 KB - SPI
+    GUIKIT_FRAM_CY15V1024,     // 1 MB - SPI
+    GUIKIT_FRAM_CY15V102QN,    // 128 KB - SPI Quad (Industrial)
+    GUIKIT_FRAM_CY15V104QSN    // 512 KB - SPI Quad (Industrial)
+} guikit_fram_model_t;
+
+// ============================================================================
 // Expander Types
 // ============================================================================
 
@@ -82,6 +120,12 @@ typedef struct {
     guikit_ram_type_t type;
     uint32_t size;         // Size in bytes
     uint8_t cs_pin;        // CS pin (255 = not applicable)
+    // Chip model (for specific chip identification)
+    union {
+        guikit_sram_model_t sram_model;   // For SRAM type
+        guikit_psram_model_t psram_model; // For PSRAM type
+        guikit_fram_model_t fram_model;   // For FRAM type
+    } model;
 } guikit_ram_config_t;
 
 // SPI device-specific configuration
@@ -208,6 +252,18 @@ typedef struct {
     .name = name \
 }
 
+// Helper macro to create a RAM bank entry with specific chip model
+#define GUIKIT_RAM_BANK_WITH_MODEL(ram_type, chip_model, size, cs_pin, name) \
+{ \
+    .device_type = (ram_type == GUIKIT_RAM_INTERNAL ? GUIKIT_DEVICE_RAM_INTERNAL : \
+                   ram_type == GUIKIT_RAM_SRAM ? GUIKIT_DEVICE_RAM_SRAM : \
+                   ram_type == GUIKIT_RAM_PSRAM ? GUIKIT_DEVICE_RAM_PSRAM : GUIKIT_DEVICE_RAM_FRAM), \
+    .enabled = true, \
+    .config.ram = {.type = ram_type, .size = size, .cs_pin = cs_pin, \
+                   .model = {.sram_model = chip_model}}, \
+    .name = name \
+}
+
 // Helper macro to create an SPI device bank entry
 #define GUIKIT_SPI_DEVICE_BANK(device_type, cs_pin, irq_pin, speed, name) \
 { \
@@ -318,6 +374,130 @@ typedef struct {
         // SPI expanders
         GUIKIT_SPI_EXPANDER_BANK(GUIKIT_EXPANDER_MCP23S17, 16, 255, 255, "Expander_1"), \
         GUIKIT_SPI_EXPANDER_BANK(GUIKIT_EXPANDER_MCP23S17, 17, 255, 255, "Expander_2") \
+    }, \
+    .sck_pin = 18, \
+    .mosi_pin = 23, \
+    .miso_pin = 19, \
+    .max_speed_mhz = 40, \
+    .display = {320, 240, 16, true}, \
+    .use_sd_card = true, \
+    .use_webdav = true, \
+    .debug_mode = false \
+}
+
+// ESP32 with ISSI IS66WVS5128ALL (64MB PSRAM) + 2x MCP23S17
+#define GUIKIT_HW_UNION_ESP32_ISSI_64MB_PSRAM \
+{ \
+    .is_esp8266 = false, \
+    .is_esp32 = true, \
+    .bank_count = 5, \
+    .banks = { \
+        // ISSI IS66WVS5128ALL PSRAM (64MB)
+        GUIKIT_RAM_BANK(GUIKIT_RAM_PSRAM, 64 * 1024 * 1024, 255, "ISSI_IS66WVS5128ALL"), \
+        // SPI devices
+        GUIKIT_SPI_DEVICE_BANK(GUIKIT_DEVICE_TFT, 5, 255, 40, "TFT"), \
+        GUIKIT_SPI_DEVICE_BANK(GUIKIT_DEVICE_TOUCH, 21, 255, 40, "Touch"), \
+        // SPI expanders
+        GUIKIT_SPI_EXPANDER_BANK(GUIKIT_EXPANDER_MCP23S17, 16, 255, 255, "Expander_1"), \
+        GUIKIT_SPI_EXPANDER_BANK(GUIKIT_EXPANDER_MCP23S17, 17, 255, 255, "Expander_2") \
+    }, \
+    .sck_pin = 18, \
+    .mosi_pin = 23, \
+    .miso_pin = 19, \
+    .max_speed_mhz = 100,  // Octal SPI supports higher speeds \
+    .display = {320, 240, 16, true}, \
+    .use_sd_card = true, \
+    .use_webdav = true, \
+    .debug_mode = false \
+}
+
+// ESP32 with Lyontek LY68L6400 (512KB SRAM) + TFT + Touch
+#define GUIKIT_HW_UNION_ESP32_LY68L6400 \
+{ \
+    .is_esp8266 = false, \
+    .is_esp32 = true, \
+    .bank_count = 4, \
+    .banks = { \
+        // Lyontek LY68L6400 SRAM (512KB)
+        GUIKIT_RAM_BANK(GUIKIT_RAM_SRAM, 512 * 1024, 5, "LY68L6400"), \
+        // SPI devices
+        GUIKIT_SPI_DEVICE_BANK(GUIKIT_DEVICE_TFT, 15, 255, 50, "TFT"), \
+        GUIKIT_SPI_DEVICE_BANK(GUIKIT_DEVICE_TOUCH, 4, 255, 50, "Touch"), \
+        GUIKIT_SPI_DEVICE_BANK(GUIKIT_DEVICE_SD_CARD, 13, 255, 50, "SD") \
+    }, \
+    .sck_pin = 14, \
+    .mosi_pin = 13, \
+    .miso_pin = 12, \
+    .max_speed_mhz = 50, \
+    .display = {320, 240, 16, true}, \
+    .use_sd_card = true, \
+    .use_webdav = true, \
+    .debug_mode = false \
+}
+
+// ESP8266 with Lyontek LY68L6400 (512KB SRAM) + TFT + Touch + SD
+#define GUIKIT_HW_UNION_ESP8266_LY68L6400 \
+{ \
+    .is_esp8266 = true, \
+    .is_esp32 = false, \
+    .bank_count = 6, \
+    .banks = { \
+        // SPI devices
+        GUIKIT_SPI_DEVICE_BANK(GUIKIT_DEVICE_TFT, 15, 255, 20, "TFT"),      // D8
+        GUIKIT_SPI_DEVICE_BANK(GUIKIT_DEVICE_TOUCH, 4, 255, 20, "Touch"),   // D2
+        GUIKIT_SPI_DEVICE_BANK(GUIKIT_DEVICE_SD_CARD, 5, 255, 20, "SD"),    // D1
+        // Lyontek LY68L6400 SRAM (512KB) on D0
+        GUIKIT_RAM_BANK(GUIKIT_RAM_SRAM, 512 * 1024, 16, "LY68L6400"), \
+        // Additional SRAM banks can be added here for more memory
+    }, \
+    .sck_pin = 14,   // D5
+    .mosi_pin = 13,  // D7
+    .miso_pin = 12,  // D6
+    .max_speed_mhz = 20, \
+    .display = {320, 240, 4, true}, \
+    .use_sd_card = true, \
+    .use_webdav = true, \
+    .debug_mode = false \
+}
+
+// ESP8266 with Cypress CY15V104QSN (512KB FRAM) + TFT + Touch + SD
+#define GUIKIT_HW_UNION_ESP8266_CY15V104QSN \
+{ \
+    .is_esp8266 = true, \
+    .is_esp32 = false, \
+    .bank_count = 6, \
+    .banks = { \
+        // SPI devices
+        GUIKIT_SPI_DEVICE_BANK(GUIKIT_DEVICE_TFT, 15, 255, 20, "TFT"),      // D8
+        GUIKIT_SPI_DEVICE_BANK(GUIKIT_DEVICE_TOUCH, 4, 255, 20, "Touch"),   // D2
+        GUIKIT_SPI_DEVICE_BANK(GUIKIT_DEVICE_SD_CARD, 5, 255, 20, "SD"),    // D1
+        // Cypress CY15V104QSN FRAM (512KB, non-volatile) on D0
+        GUIKIT_RAM_BANK(GUIKIT_RAM_FRAM, 512 * 1024, 16, "CY15V104QSN"), \
+    }, \
+    .sck_pin = 14,   // D5
+    .mosi_pin = 13,  // D7
+    .miso_pin = 12,  // D6
+    .max_speed_mhz = 40,  // FRAM supports 40 MHz \
+    .display = {320, 240, 4, true}, \
+    .use_sd_card = true, \
+    .use_webdav = true, \
+    .debug_mode = false \
+}
+
+// ESP32 with Cypress CY15V104QSN (512KB FRAM) + PSRAM + TFT + Touch
+#define GUIKIT_HW_UNION_ESP32_CY15V104QSN \
+{ \
+    .is_esp8266 = false, \
+    .is_esp32 = true, \
+    .bank_count = 6, \
+    .banks = { \
+        // PSRAM (native)
+        GUIKIT_RAM_BANK(GUIKIT_RAM_PSRAM, 8 * 1024 * 1024, 255, "PSRAM"), \
+        // Cypress CY15V104QSN FRAM (512KB, non-volatile)
+        GUIKIT_RAM_BANK(GUIKIT_RAM_FRAM, 512 * 1024, 5, "CY15V104QSN"), \
+        // SPI devices
+        GUIKIT_SPI_DEVICE_BANK(GUIKIT_DEVICE_TFT, 18, 255, 40, "TFT"), \
+        GUIKIT_SPI_DEVICE_BANK(GUIKIT_DEVICE_TOUCH, 21, 255, 40, "Touch"), \
     }, \
     .sck_pin = 18, \
     .mosi_pin = 23, \
