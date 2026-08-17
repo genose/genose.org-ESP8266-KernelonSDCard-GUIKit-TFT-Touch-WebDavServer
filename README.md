@@ -42,6 +42,7 @@ Detailed architecture documentation is available in the [`docs/`](docs/) directo
 | [MEMORY_MANAGEMENT.md](docs/MEMORY_MANAGEMENT.md) | Objective-C style memory management for ESP8266 |
 | [memory_strategy_config.md](docs/memory_strategy_config.md) | Memory strategy configuration with config struct |
 | [KERNEL_FUNCTIONALITY_COSTS.md](docs/KERNEL_FUNCTIONALITY_COSTS.md) | Kernel functionality RAM costs and priorities |
+| [MULTICORE_ARCHITECTURE.md](docs/MULTICORE_ARCHITECTURE.md) | Dual-core ESP32 SMP architecture and implementation |
 | [about_ram_expansion.md](about_ram_expansion.md) | External RAM expansion analysis |
 | [about_port_expander.md](about_port_expander.md) | SPI port expander analysis |
 | [about_huge_demo_ram_requirements.md](about_huge_demo_ram_requirements.md) | Huge demo RAM requirements |
@@ -123,8 +124,9 @@ A **hardware detection bootloader** that automatically:
 2. **RAM Length Detection** - Tests actual RAM size with 1-2 passes to detect wiring errors (e.g., 64K chip wired as 256K)
 3. Initializes RAM (internal and external) with verified sizes
 4. Configures memory strategy based on detected hardware
-5. Tests strategy with various GUI sizes
-6. Displays RAM test progress and results on TFT (if available)
+5. **Detects ESP32 dual-core** and configures SMP mode
+6. Tests strategy with various GUI sizes
+7. Displays RAM test progress and results on TFT (if available)
 
 **Files:**
 - `src/boot/guikit_bootloader.h` - Bootloader header

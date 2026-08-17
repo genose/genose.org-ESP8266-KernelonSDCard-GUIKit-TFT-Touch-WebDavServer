@@ -14,6 +14,7 @@ Usage:
   ./help.sh bootloader         - Bootloader information
   ./help.sh config             - Configuration information
   ./help.sh gui                - GUI loading information
+  ./help.sh multicore          - Multi-core architecture documentation
   ./help.sh ram-test           - RAM length detection information
   ./help.sh webdav-push        - WebDAV push notification information
   ./help.sh mdns               - mDNS service discovery information
@@ -29,6 +30,7 @@ Available Commands:
   bootloader   - Show bootloader documentation
   config       - Show hardware configuration documentation
   gui          - Show GUI loading documentation
+  multicore    - Show multi-core architecture documentation
   ram-test     - Show RAM length detection documentation
   huge-gui     - Show huge GUI (500KB) results
   webdav-push  - Show WebDAV push notification documentation
@@ -108,6 +110,9 @@ case "$1" in
         echo "  - GUIKIT_HW_ESP32_LY68L6400 (512KB Lyontek SRAM)"
         echo ""
         echo "See guikit_hw_config.h for details"
+        ;;
+    "multicore"|"multi")
+        cat docs/MULTICORE_ARCHITECTURE.md
         ;;
     "ram-test"|"ramtest")
         echo "RAM Length Detection Documentation"
