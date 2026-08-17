@@ -138,7 +138,9 @@ ESP8266
 
 | Chip | Type | Outputs | Control | Enable | Speed | Voltage | Price | Best For |
 |------|------|---------|---------|--------|-------|---------|-------|----------|
-| **74HC4067** | Analog MUX/DMUX | 16 | 4 (S0-S3) | 1 (EN) | 20+ MHz | 2-5.5V | ~$0.50 | **Best overall** |
+| **74HC154** | 4-to-16 Decoder | 16 | 4 (A0-A3) | 2 (E1,E2) | 20+ MHz | 2-5.5V | ~$0.50 | **Best for SPI CS (active-low)** |
+| **74HC4067** | Analog MUX/DMUX | 16 | 4 (S0-S3) | 1 (EN) | 20+ MHz | 2-5.5V | ~$0.50 | Bidirectional, analog capable |
+| **74HC158** | 4-to-16 Decoder | 16 | 4 (A0-A3) | 4 (ENs) | 20+ MHz | 2-5.5V | ~$0.50 | Active-high outputs |
 | 74HCT4067 | Same, 5V tolerant | 16 | 4 | 1 | 20+ MHz | 4.5-5.5V | ~$0.75 | 5V systems |
 | **74HC138** | 3-to-8 Decoder | 8 | 3 (A0-A2) | 3 (ENs) | 20+ MHz | 2-5.5V | ~$0.30 | 8 devices, active-low |
 | 74HC139 | Dual 2-to-4 Decoder | 8 | 2 (A0-A1) | 1 | 20+ MHz | 2-5.5V | ~$0.40 | 2 groups of 4 |
@@ -150,10 +152,123 @@ ESP8266
 
 **Choose based on your needs:**
 
-1. **74HC4067** - Need 16 CS lines, best price/performance
-2. **74HC138** - Need only 8 CS lines, slightly simpler
-3. **74HC139** - Need two separate groups of 4 CS lines each
-4. **CD4051** - Working with analog signals or higher voltage
+1. **74HC154** - Need 16 CS lines, **active-low outputs (BEST for SPI CS!)**
+2. **74HC4067** - Need 16 CS lines, bidirectional, analog capable
+3. **74HC158** - Need 16 CS lines, active-high outputs
+4. **74HC138** - Need only 8 CS lines, active-low outputs
+5. **74HC139** - Need two separate groups of 4 CS lines each
+6. **CD4051** - Working with analog signals or higher voltage
+
+---
+
+## 🏆 74HC154 - The Ultimate SPI CS Decoder
+
+### Why 74HC154 is PERFECT for SPI CS Expansion
+
+**74HC154 is actually the BEST choice for SPI CS line expansion** because:
+
+| Feature | Benefit for SPI CS |
+|---------|-------------------|
+| **16 active-low outputs** | Most SPI devices use active-low CS - **no inversion needed!** |
+| **4 address inputs** | A0-A3 select which of 16 outputs is LOW |
+| **2 enable inputs** | E1 and E2 (both must be LOW to enable)
+| **High speed** | 20+ MHz switching (faster than SPI devices) |
+| **Digital decoder** | Specifically designed for address decoding |
+| **Low cost** | ~$0.50-$1.00 per chip |
+| **3.3V compatible** | Works directly with ESP8266/ESP32 |
+
+### Pinout & Truth Table
+
+```
+74HC154 - 4-to-16 Line Decoder (Active-Low Outputs)
+┌───────────────────────────────────┐
+│   A0     1 │ ▁        ▁ │ 24  VCC    │
+│   A1     2 │           │ 23  Y15    │
+│   A2     3 │           │ 22  Y14    │
+│   A3     4 │           │ 21  Y13    │
+│   GND   13 │           │ 20  Y12    │
+│    Y0     5 │           │ 19  Y11    │
+│    Y1     6 │           │ 18  Y10    │
+│    Y2     7 │           │ 17  Y9     │
+│    Y3     8 │           │ 16  Y8     │
+│    Y4     9 │           │ 15  Y7     │
+│    Y5    10 │           │ 14  Y6     │
+│    Y6    11 │           │ 13  Y5     │
+│    Y7    12 │           │ 12  Y4     │
+│   E1    20 │           │           │
+│   E2    21 │           │           │
+└───────────────────────────────────┘
+
+Truth Table:
+When E1=LOW and E2=LOW, one output is LOW based on A3-A0:
+A3 A2 A1 A0 | Output (LOW)
+ 0  0  0  0 → Y0
+ 0  0  0  1 → Y1
+ 0  0  1  0 → Y2
+ ...
+ 1  1  1  1 → Y15
+When E1 or E2 is HIGH, all outputs are HIGH (inactive)
+```
+
+### Wiring to ESP8266
+
+```
+ESP8266 → 74HC154
+D0 → E1 (active LOW)
+D1 → E2 (active LOW)
+D2 → A0 (LSB)
+D3 → A1
+D4 → A2
+D5 → A3 (MSB)
+
+74HC154 → SPI Devices (ACTIVE LOW CS)
+Y0  → Device 0 CS
+Y1  → Device 1 CS
+...
+Y15 → Device 15 CS
+
+Shared SPI Bus:
+- MOSI → All device MOSI
+- MISO → All device MISO
+- SCK  → All device SCK
+```
+
+### Code Implementation
+
+```cpp
+#define DECODE_EN1  D0
+#define DECODE_EN2  D1
+#define DECODE_A0   D2
+#define DECODE_A1   D3
+#define DECODE_A2   D4
+#define DECODE_A3   D5
+
+void selectDevice(uint8_t device) {
+    if (device > 15) return;
+    digitalWrite(DECODE_EN1, LOW);
+    digitalWrite(DECODE_EN2, LOW);
+    digitalWrite(DECODE_A0, bitRead(device, 0));
+    digitalWrite(DECODE_A1, bitRead(device, 1));
+    digitalWrite(DECODE_A2, bitRead(device, 2));
+    digitalWrite(DECODE_A3, bitRead(device, 3));
+}
+
+void deselectAll() {
+    digitalWrite(DECODE_EN1, HIGH);
+}
+```
+
+### 74HC154 vs 74HC4067
+
+| Feature | 74HC154 | 74HC4067 | Winner for SPI CS |
+|---------|---------|----------|-------------------|
+| Output Type | **Active-low** | Active-high | **74HC154** ✅ |
+| **Perfect for SPI CS** | **✅ Yes** | Needs inversion | **74HC154** ✅ |
+| Enable Lines | 2 | 1 | 74HC4067 |
+| Bidirectional | No | Yes | 74HC4067 |
+| GPIO Used | 6 | 5 | 74HC4067 |
+
+**Conclusion: 74HC154 is BEST for SPI CS because outputs are already active-low!**
 
 ---
 
@@ -269,6 +384,25 @@ Note: Y8 and Y9 share the same pin (pin 12)
 ---
 
 ## 🔄 Alternative Multiplexers
+
+### 74HC154 - 4-to-16 Decoder (Active-Low)
+
+**When to use:** Need 16 CS lines with active-low outputs (best for SPI)
+
+The 74HC154 is essentially the same as 74HC4067 but with **active-low outputs**, making it perfect for SPI CS lines without any inversion logic.
+
+| Feature | 74HC154 | 74HC4067 |
+|---------|---------|----------|
+| Outputs | 16 | 16 |
+| Output Type | Active-low | Active-high |
+| Enable | 2 pins (E1, E2) | 1 pin (EN) |
+| **SPI CS Use** | **Perfect ✅** | Needs inversion |
+
+### 74HC158 - 4-to-16 Decoder (Active-High)
+
+**When to use:** Need 16 CS lines with active-high outputs
+
+Similar to 74HC154 but with **active-high outputs** and **4 enable lines** (E1-E4).
 
 ### 74HC138 - 3-to-8 Line Decoder
 

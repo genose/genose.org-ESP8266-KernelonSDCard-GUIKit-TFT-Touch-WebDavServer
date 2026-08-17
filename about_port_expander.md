@@ -1008,11 +1008,75 @@ While SPI bus multiplexing shares MOSI/MISO/SCK, each device still needs a **ded
 | Chip | Type | Inputs | Outputs | Control Lines | Enable | Speed | Notes |
 |------|------|--------|---------|----------------|--------|-------|-------|
 | **74HC4067** | Analog MUX/DMUX | 1 | 16 | 4 (S0-S3) | 1 (EN) | 20+ MHz | Bidirectional, supports analog |
+| **74HC154** | 4-to-16 Decoder | 4 | 16 | 4 (A0-A3) | 2 (ENs) | 20+ MHz | **Active-low outputs, best for CS** |
+| **74HC158** | 4-to-16 Decoder | 4 | 16 | 4 (A0-A3) | 4 (ENs) | 20+ MHz | Active-high outputs |
 | **74HC138** | 3-to-8 Decoder | 3 | 8 | 3 (A0-A2) | 3 (ENs) | 20+ MHz | Active-low outputs |
 | **74HC139** | Dual 2-to-4 Decoder | 2 | 8 (4+4) | 2 (A0-A1) | 1 (EN) | 20+ MHz | Two independent 2-to-4 decoders |
 | **CD4051** | Analog MUX/DMUX | 1 | 8 | 3 (A0-A2) | 1 (INH) | 10 MHz | Analog capable, slower |
 | **74HC238** | 3-to-8 Decoder | 3 | 8 | 3 (A0-A2) | 3 (ENs) | 20+ MHz | Latched outputs |
 | **74HC239** | Dual 2-to-4 Decoder | 2 | 8 (4+4) | 2 (A0-A1) | 1 (EN) | 20+ MHz | Latched, active-low outputs |
+
+### Recommended: 74HC154 4-to-16 Decoder
+
+**The 74HC154 is the BEST choice for SPI CS expansion:**
+- **16 outputs** from 4 address lines + 2 enable lines
+- **Active-low outputs** - Perfect for SPI CS (most devices use active-low CS)
+- **High speed** - 20+ MHz switching
+- **Low cost** - ~$0.50-$1.00 per chip
+- **Designed for CS** - Unlike 74HC4067 (analog MUX), this is a digital decoder
+- **5V tolerant** - Works with 3.3V ESP8266/ESP32
+
+**Pinout:**
+```
+74HC154 (4-to-16 Line Decoder)
+┌───────────────────────────────────┐
+│   A0     1 │ ▁        ▁ │ 24  VCC    │
+│   A1     2 │           │ 23  Y15    │
+│   A2     3 │           │ 22  Y14    │
+│   A3     4 │           │ 21  Y13    │
+│   E1    20 │           │ 20  Y12    │
+│   E2    21 │           │ 19  Y11    │
+│    GND  13 │           │ 18  Y10    │
+│            │           │ 17  Y9     │
+│            │           │ 16  Y8     │
+│   Y0     5 │           │ 15  Y7     │
+│   Y1     6 │           │ 14  Y6     │
+│   Y2     7 │           │ 13  Y5     │
+│   Y3     8 │           │ 12  Y4     │
+└───────────────────────────────────┘
+
+Note: Outputs are ACTIVE LOW
+Truth Table: When E1=L and E2=L, one output is LOW based on A3-A0
+```
+
+**Wiring:**
+```
+ESP8266 → 74HC154
+D0 → E1 (Active LOW enable)
+D1 → E2 (Active LOW enable) 
+D2 → A0
+D3 → A1
+D4 → A2
+D5 → A3
+
+74HC154 → SPI Devices (active-low CS)
+Y0  → Device 0 CS
+Y1  → Device 1 CS
+...
+Y15 → Device 15 CS
+
+Note: Y0-Y15 are ACTIVE LOW, which is perfect for SPI CS lines!
+```
+
+**74HC154 vs 74HC4067:**
+| Feature | 74HC154 | 74HC4067 | Winner |
+|---------|---------|----------|--------|
+| Outputs | 16 | 16 | Tie |
+| Output Type | Active-low | Active-high | **74HC154** (for SPI CS) |
+| Enable Lines | 2 | 1 | 74HC4067 |
+| Bidirectional | No | Yes | 74HC4067 |
+| Analog Support | No | Yes | 74HC4067 |
+| **Best for SPI CS** | ✅ **Yes** | ⚠️ Needs inversion | **74HC154** |
 
 ### Recommended: 74HC4067 16-Channel Multiplexer
 
