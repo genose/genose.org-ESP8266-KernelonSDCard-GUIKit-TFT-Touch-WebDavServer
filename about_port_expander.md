@@ -15,10 +15,11 @@
 7. [GUIKit Integration](#guikit-integration)
 8. [Practical Examples](#practical-examples)
 9. [SPI Bus Multiplexing](#spi-bus-multiplexing)
-10. [Comparison: SPI vs I2C](#comparison-spi-vs-i2c)
-11. [Recommended Configuration](#recommended-configuration)
-12. [Shopping List](#shopping-list)
-13. [FAQ](#faq)
+10. [CS Line Multiplexer Expansion](#-cs-line-multiplexer-expansion)
+11. [Comparison: SPI vs I2C](#comparison-spi-vs-i2c)
+12. [Recommended Configuration](#recommended-configuration)
+13. [Shopping List](#shopping-list)
+14. [FAQ](#faq)
 
 ---
 
@@ -991,6 +992,240 @@ tft.writeCommand(0x2C);  // Memory write
 tft.writeData(color);
 tftDevice.end();
 ```
+
+---
+
+## 🎛️ CS Line Multiplexer Expansion
+
+### The CS Line Limitation
+
+While SPI bus multiplexing shares MOSI/MISO/SCK, each device still needs a **dedicated CS line**. ESP8266 has limited GPIO, creating a bottleneck when adding many SPI devices.
+
+**Solution:** Use a **digital multiplexer/demultiplexer** (like 74HC4067, 74HC138, or CD4051) to expand a few control lines into many CS outputs.
+
+### Multiplexer Types for CS Expansion
+
+| Chip | Type | Inputs | Outputs | Control Lines | Enable | Speed | Notes |
+|------|------|--------|---------|----------------|--------|-------|-------|
+| **74HC4067** | Analog MUX/DMUX | 1 | 16 | 4 (S0-S3) | 1 (EN) | 20+ MHz | Bidirectional, supports analog |
+| **74HC138** | 3-to-8 Decoder | 3 | 8 | 3 (A0-A2) | 3 (ENs) | 20+ MHz | Active-low outputs |
+| **74HC139** | Dual 2-to-4 Decoder | 2 | 8 (4+4) | 2 (A0-A1) | 1 (EN) | 20+ MHz | Two independent 2-to-4 decoders |
+| **CD4051** | Analog MUX/DMUX | 1 | 8 | 3 (A0-A2) | 1 (INH) | 10 MHz | Analog capable, slower |
+| **74HC238** | 3-to-8 Decoder | 3 | 8 | 3 (A0-A2) | 3 (ENs) | 20+ MHz | Latched outputs |
+| **74HC239** | Dual 2-to-4 Decoder | 2 | 8 (4+4) | 2 (A0-A1) | 1 (EN) | 20+ MHz | Latched, active-low outputs |
+
+### Recommended: 74HC4067 16-Channel Multiplexer
+
+**The 74HC4067 is the best choice for CS expansion:**
+- **16 outputs** from 4 control lines + 1 enable
+- **Bidirectional** - Works as both multiplexer and demultiplexer
+- **High speed** - 20+ MHz switching (plenty for SPI CS)
+- **Low cost** - ~$0.50-$1.50 per chip
+- **Widely available** - DIP and SMD packages
+- **5V tolerant** - Works with 3.3V ESP8266/ESP32
+
+#### Pinout
+
+```
+74HC4067 (16-Channel MUX/DMUX)
+┌───────────────────────────────────┐
+│  IN/OUT    1 │ ▁        ▁ │ 24  VCC    │
+│    S0      2 │           │ 23  S3     │
+│    S1      3 │           │ 22  S2     │
+│    S2      4 │           │ 21  EN     │
+│   Y0/Y16   5 │           │ 20  Y1     │
+│   Y1/Y15   6 │           │ 19  Y2     │
+│   Y2/Y14   7 │           │ 18  Y3     │
+│   Y3/Y13   8 │           │ 17  Y4     │
+│   Y4/Y12   9 │           │ 16  Y5     │
+│   Y5/Y11  10 │           │ 15  Y6     │
+│   Y6/Y10  11 │           │ 14  Y7     │
+│   Y7/Y9   12 │           │ 13  Y8     │
+│    GND    13 │           │ 12  Y9/Y8   │
+└──────────────┴───────────────┴─────────┘
+```
+
+#### Wiring to ESP8266
+
+```
+ESP8266 → 74HC4067
+┌─────────────────────┐
+│ D0  → EN (Active LOW) │ ← Enable (pull LOW to activate)
+│ D1  → S0             │ ← Control bit 0
+│ D2  → S1             │ ← Control bit 1
+│ D3  → S2             │ ← Control bit 2
+│ D4  → S3             │ ← Control bit 3
+│                     │
+│ 3.3V → VCC           │ ← Power
+│ GND → GND            │ ← Ground
+└─────────────────────┘
+
+74HC4067 → SPI Devices
+┌─────────────────────────────────────────┐
+│ Y0  → Device 0 CS (e.g., SRAM Bank 0)     │
+│ Y1  → Device 1 CS (e.g., SRAM Bank 1)     │
+│ Y2  → Device 2 CS (e.g., SRAM Bank 2)     │
+│ ...                                 │
+│ Y14 → Device 14 CS (e.g., SD Card)        │
+│ Y15 → Device 15 CS (e.g., Touch)          │
+└─────────────────────────────────────────┘
+
+Shared SPI Bus:
+- MOSI → All device MOSI pins
+- MISO → All device MISO pins  
+- SCK  → All device SCK pins
+```
+
+### Address Selection Logic
+
+```
+Control Lines: S3 S2 S1 S0
+EN must be LOW to enable outputs
+
+Binary Address → Output
+0000 → Y0  (Device 0)
+0001 → Y1  (Device 1)
+0010 → Y2  (Device 2)
+...
+1110 → Y14 (Device 14)
+1111 → Y15 (Device 15)
+```
+
+### Code Implementation
+
+```cpp
+// Control pins
+#define MUX_EN   D0
+#define MUX_S0   D1
+#define MUX_S1   D2
+#define MUX_S2   D3
+#define MUX_S3   D4
+
+// Select CS line (0-15)
+void selectCS(uint8_t deviceNum) {
+    // Enable multiplexer
+    digitalWrite(MUX_EN, LOW);
+    
+    // Set address bits
+    digitalWrite(MUX_S0, deviceNum & 0x01);
+    digitalWrite(MUX_S1, deviceNum & 0x02);
+    digitalWrite(MUX_S2, deviceNum & 0x04);
+    digitalWrite(MUX_S3, deviceNum & 0x08);
+    
+    // Small delay for multiplexer switching
+    delayMicroseconds(1);
+}
+
+// Deselect all CS lines
+void deselectAll() {
+    digitalWrite(MUX_EN, HIGH);  // Disable all outputs
+}
+
+// Example usage
+void setup() {
+    pinMode(MUX_EN, OUTPUT);
+    pinMode(MUX_S0, OUTPUT);
+    pinMode(MUX_S1, OUTPUT);
+    pinMode(MUX_S2, OUTPUT);
+    pinMode(MUX_S3, OUTPUT);
+    deselectAll();  // Start with all deselected
+}
+
+void loop() {
+    // Access SRAM Bank 0 (Y0)
+    selectCS(0);
+    sram0.read(address, data);
+    deselectAll();
+    
+    // Access SRAM Bank 1 (Y1)
+    selectCS(1);
+    sram1.write(address, data);
+    deselectAll();
+}
+```
+
+### Optimized Macro Version
+
+```cpp
+// Fast CS selection using direct PORT access
+#define MUX_PORTWrite(val) \
+    do { \
+        GPIO_OUTPUT_REG &= ~((1<<MUX_EN)|(1<<MUX_S0)|(1<<MUX_S1)|(1<<MUX_S2)|(1<<MUX_S3)); \
+        GPIO_OUTPUT_REG |= ((val & 0x10) ? (1<<MUX_EN) : 0) \
+                         | ((val & 0x01) ? (1<<MUX_S0) : 0) \
+                         | ((val & 0x02) ? (1<<MUX_S1) : 0) \
+                         | ((val & 0x04) ? (1<<MUX_S2) : 0) \
+                         | ((val & 0x08) ? (1<<MUX_S3) : 0); \
+    } while(0)
+
+// Note: EN is inverted (0x10 = enable bit)
+#define selectCSfast(n) MUX_PORTWrite((n) | 0x10)
+#define deselectAllFast() MUX_PORTWrite(0x00)
+```
+
+### Multiple Multiplexers for 32+ CS Lines
+
+**Cascade two 74HC4067 chips for 32 CS outputs:**
+- First chip: Selects which multiplexer (0 or 1)
+- Second chip: Selects which device (0-15)
+- Total: 4 control + 1 enable + 4 control + 1 enable = **10 GPIO → 32 CS lines**
+
+```
+ESP8266 → MUX Selector (74HC4067 #1)
+D0 → EN1
+D1 → S0 (Select MUX A or B)
+
+MUX Selector → Device MUX (74HC4067 #2 or #3)
+Y0 → EN2 of MUX A
+Y1 → EN2 of MUX B
+
+MUX A (74HC4067 #2) → Devices 0-15
+MUX B (74HC4067 #3) → Devices 16-31
+
+Total: 10 GPIO (D0-D9) → 32 CS lines
+```
+
+### Comparison: Multiplexer vs GPIO Expander
+
+| Approach | GPIO Used | CS Lines | Speed | Complexity | Cost |
+|----------|-----------|----------|-------|------------|------|
+| Direct GPIO | 1 per CS | N | ⚡⚡⚡⚡⚡ | ⭐ | $0 |
+| 74HC4067 (1 chip) | 5 | 16 | ⚡⚡⚡⚡⚡ | ⭐⭐ | ~$0.50 |
+| 2x 74HC4067 | 10 | 32 | ⚡⚡⚡⚡⚡ | ⭐⭐⭐ | ~$1.00 |
+| MCP23S17 (GPIO expander) | 1 (CS) | 16 | ⚡⚡⚡ (4MHz) | ⭐⭐ | ~$2.00 |
+| MCP23S17 + 74HC4067 | 6 (5+1) | 256 | ⚡⚡⚡ | ⭐⭐⭐⭐ | ~$2.50 |
+
+**Best for CS expansion:** 74HC4067 (fastest, simplest, cheapest per CS line)
+
+### GUIKit Integration
+
+**Example: 16 Device Configuration**
+
+```
+CS Line Assignment:
+Y0  → SRAM Bank 0 (23LC1024)
+Y1  → SRAM Bank 1 (23LC1024)
+Y2  → SRAM Bank 2 (LY68L6400)
+Y3  → SRAM Bank 3 (LY68L6400)
+Y4  → SD Card Slot 0
+Y5  → SD Card Slot 1
+Y6  → TFT Display 0
+Y7  → TFT Display 1
+Y8  → Touch Controller 0
+Y9  → Touch Controller 1
+Y10 → GPIO Expander 0 (MCP23S17)
+Y11 → GPIO Expander 1 (MCP23S17)
+Y12 → GPIO Expander 2 (MCP23S17)
+Y13 → GPIO Expander 3 (MCP23S17)
+Y14 → WebDAV Controller
+Y15 → mDNS Controller
+```
+
+**Total:**
+- 5 GPIO pins used (EN + S0-S3)
+- 16 CS lines available
+- All devices share MOSI/MISO/SCK
+- Total GPIO saved: 11 pins
 
 ---
 
