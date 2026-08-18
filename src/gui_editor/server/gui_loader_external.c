@@ -241,9 +241,13 @@ void* gui_loader_load_from_webdav_to_external_ram(const char* filename) {
 }
 
 void* gui_loader_parse_json(const char* json) {
-    // Parse JSON into GUI structure
-    // This would use a JSON parser library
-    // For now, return NULL as placeholder
+    // Parse JSON into GUI structure using ArduinoJson
+    // Implementation is in src/gui/ui_parser.cpp
+    // For the editor/server, we need a different approach
+    // as it runs on host PC, not on ESP8266
+    
+    // For now, keep as placeholder for server-side
+    // The actual implementation for ESP8266 is in ui_parser.cpp
     (void)json;
     return NULL;
 }

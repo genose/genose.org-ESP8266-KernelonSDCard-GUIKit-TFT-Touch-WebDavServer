@@ -15,8 +15,9 @@
 #include <stdbool.h>
 #include "widget_pool.h"
 
-// Forward declaration
+// Forward declarations
 class SPISRAM;
+void* gui_loader_parse_json(const char* json);
 
 // ============================================================================
 // Configuration
