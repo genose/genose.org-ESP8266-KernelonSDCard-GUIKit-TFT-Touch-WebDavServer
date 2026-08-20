@@ -6,6 +6,152 @@
 
 ---
 
+## 🏆 Project Overview & Goals
+
+### 🎯 Main Goal
+**Build a complete GUI system for ESP8266/ESP32 that loads dynamic UIs from JSON files stored on SD card, with a web-based editor for creating and managing these GUIs.**
+
+### 📋 Specific Objectives
+
+#### 1. **Core System**
+- ✅ **Bootloader** with kernel loading from SD card
+- ✅ **Kernel** with GUI rendering, touch handling, and SD card access
+- ✅ **Separated architecture** (bootloader runs first, then loads kernel)
+- ✅ **Memory management** with internal/external/SD swap strategies
+
+#### 2. **GUI System**
+- ✅ **JSON-based UI definitions** loaded at runtime
+- ✅ **Dynamic GUI loading** from SD card
+- ✅ **Widget system** with pooling for memory efficiency
+- ✅ **Multiple widget types**: view, button, label, slider, textfield, etc.
+- ✅ **Scrollable widgets** with X/Y both directions
+- ✅ **Gradient colors** and styling support
+- ✅ **Context menus** with long-press detection
+
+#### 3. **Development Tools**
+- ✅ **Web-based GUI Editor** (editor.GUIKIT)
+- ✅ **Project management** (create, open, save, templates)
+- ✅ **Text editor** with syntax highlighting, line numbers
+- ✅ **File browser** integrated
+- ✅ **WebDAV integration** for remote file management
+- ✅ **User management** with home directories
+
+#### 4. **Advanced Features**
+- ✅ **Multi-core support** (ESP32 dual-core with FreeRTOS)
+- ✅ **External RAM expansion** (23LC1024, PSRAM)
+- ✅ **CS line multiplexing** (74HC154, 74HC158 for 16+ devices)
+- ✅ **mDNS service discovery** (Bonjour/Zeroconf)
+- ✅ **WebDAV push notifications** for real-time updates
+- ✅ **Image converters** (PNG, JPEG, TIFF with progress display)
+- ✅ **RAM length detection** with wiring error detection (WTM)
+
+#### 5. **Hardware Support**
+- ✅ **ESP8266** with limited RAM (80KB internal)
+- ✅ **ESP32** with dual-core and PSRAM
+- ✅ **TFT displays** (ST7789 and others)
+- ✅ **Touch screens** (XPT2046)
+- ✅ **SD cards** for storing GUIs and data
+- ✅ **External SRAM** (23LC series) via SPI
+- ✅ **SPI port expanders** (MCP23S17) for GPIO expansion
+
+### 🌟 Key Innovations
+
+#### 1. **Separated Bootloader-Kernel Design**
+- Bootloader (11KB) runs first, loads kernel from SD card
+- Kernel (up to 2MB) contains main application
+- Allows updating kernel without reflashing bootloader
+- Supports multiple kernel versions
+
+#### 2. **Dynamic GUI Loading**
+- GUIs defined in JSON files (`.GUIKIT` directories)
+- Loaded at runtime from SD card
+- No recompilation needed to change UI
+- Supports hot-reloading of GUIs
+
+#### 3. **Memory Strategy System**
+- **INTERNAL** → **EXTERNAL** → **SWAP** priority
+- Automatic selection based on available memory
+- External RAM (23LC1024) for GUI storage
+- SD card swap for very large GUIs
+- Memory pre-checking before loading
+
+#### 4. **Web-Based Development**
+- Full GUI editor in browser
+- Create, edit, preview GUIs without uploading
+- Project templates for quick start
+- WebDAV for file management
+- User home directories with skeleton templates
+
+#### 5. **Hardware Expansion**
+- CS line multiplexing (74HC154 best for SPI CS)
+- SPI port expansion (MCP23S17)
+- External RAM support
+- Multi-core processing (ESP32)
+
+### 📊 Project Statistics
+
+| Metric | Value |
+|--------|-------|
+| **Total Lines of Code** | ~400,000+ |
+| **C/C++ Files** | 50+ |
+| **Header Files** | 25+ |
+| **Documentation** | ~300,000+ lines |
+| **GUI Projects** | 8+ (.GUIKIT) |
+| **JSON Files** | 20+ |
+| **Commits** | 31+ |
+| **Dependencies** | ArduinoJson, TFT_eSPI, SD, SPI |
+
+### 🎨 Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                        GUIKit System                            │
+├─────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  ┌─────────────┐    ┌─────────────┐    ┌─────────────────┐ │
+│  │  Bootloader  │───▶│   Kernel    │───▶│   GUI System    │ │
+│  │  (11KB)      │    │  (up to 2MB)│    │  (Dynamic)      │ │
+│  └─────────────┘    └─────────────┘    └─────────────────┘ │
+│           │                  │                        │          │
+│           ▼                  ▼                        ▼          │
+│  ┌─────────────────────────────────────────────────────────┐ │
+│  │                    SD Card Storage                        │ │
+│  │  ┌──────────┐  ┌──────────┐  ┌──────────┐             │ │
+│  │  │ /boot/   │  │ /kernel/ │  │ /gui/     │             │ │
+│  │  │          │  │          │  │ *.GUIKIT/ │             │ │
+│  │  └──────────┘  └──────────┘  └──────────┘             │ │
+│  └─────────────────────────────────────────────────────────┘ │
+│                                                                  │
+│  ┌─────────────────────────────────────────────────────────┐ │
+│  │                    Hardware Layer                         │ │
+│  │  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐   │ │
+│  │  │  ESP8266 │  │   TFT   │  │  Touch   │  │  SD Card │   │ │
+│  │  │  /ESP32  │  │ (ST7789)│  │(XPT2046)│  │         │   │ │
+│  │  └─────────┘  └─────────┘  └─────────┘  └─────────┘   │ │
+│  │       │              │              │            │        │ │
+│  │       └──────────────┴──────────────┴────────────┘        │ │
+│  │                    SPI Bus + CS Lines                     │ │
+│  └─────────────────────────────────────────────────────────┘ │
+│                                                                  │
+│  ┌─────────────────────────────────────────────────────────┐ │
+│  │                 Development Environment                   │ │
+│  │  ┌──────────────┐  ┌──────────────┐                        │ │
+│  │  │ Web Editor   │  │  GUI Loader   │                        │ │
+│  │  │ (Browser)    │  │  (ESP8266)    │                        │ │
+│  │  └──────────────┘  └──────────────┘                        │ │
+│  │       │                    │                             │ │
+│  │       └────────────────────┬─────────────┘                │ │
+│  │                        ▼                              │ │
+│  │                ┌─────────────────┐                        │ │
+│  │                │   WebDAV Server  │                        │ │
+│  │                │  (File Sync)     │                        │ │
+│  │                └─────────────────┘                        │ │
+│  └─────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
 ## 🎯 Session Summary
 
 ### Question Asked
@@ -279,6 +425,217 @@ if (gui) {
 
 ---
 
+## 🎬 Use Cases & Workflows
+
+### Typical User Journey
+
+```
+1. DEVELOPMENT PHASE (On PC)
+   ├─ Open Web Editor (editor.GUIKIT) in browser
+   ├─ Create new GUI project with template
+   ├─ Design UI with drag-and-drop (future)
+   ├─ Edit JSON directly or use visual editor
+   ├─ Save to /gui/MyProject.GUIKIT/
+   ├─ Preview in WebDAV server
+   └─ Test with virtual device
+
+2. DEPLOYMENT PHASE (To Device)
+   ├─ Copy .GUIKIT project to SD card /gui/
+   ├─ Configure /etc/guikitloader.conf
+   ├─ Set default GUI in config
+   └─ Insert SD card into ESP8266/ESP32
+
+3. BOOT PHASE (On Device)
+   ├─ Power on
+   ├─ Bootloader runs
+   │  ├─ Detects ESP8266/ESP32
+   │  ├─ Initializes SPI
+   │  ├─ Detects external RAM (if present)
+   │  ├─ Runs RAM length test
+   │  ├─ Detects SD card
+   │  ├─ Loads /etc/GUIKIT_autostart.ini
+   │  └─ Displays boot progress on TFT
+   ├─ Bootloader loads kernel from /kernel/kernel.bin
+   │  ├─ Checks kernel exists
+   │  ├─ Validates kernel size
+   │  ├─ Determines memory strategy
+   │  └─ Loads kernel into appropriate memory
+   └─ Kernel takes over
+      ├─ Initializes GUI system
+      ├─ Loads default GUI from /gui/
+      ├─ Renders on TFT
+      └─ Handles touch input
+
+4. RUNTIME PHASE (User Interaction)
+   ├─ User interacts with GUI
+   ├─ Touch events handled
+   ├─ Callbacks executed
+   ├─ WebDAV sync (if connected)
+   └─ Dynamic GUI switching
+```
+
+### Example: Creating a Settings GUI
+
+```bash
+# 1. On development PC (using Web Editor)
+#    - Open http://esp8266.local:80/editor
+#    - Create new project: settings.GUIKIT
+#    - Add slider for brightness, buttons for options
+#    - Save
+
+# 2. JSON structure created:
+{
+  "version": "1.0",
+  "name": "Settings",
+  "widgets": [{
+    "type": "view",
+    "x": 0, "y": 0, "width": 320, "height": 240,
+    "children": [
+      {"type": "label", "x": 10, "y": 10, "text": "Brightness"},
+      {"type": "slider", "x": 100, "y": 10, "min": 0, "max": 100, "value": 50},
+      {"type": "button", "x": 10, "y": 50, "text": "Save", "action": "save_settings"}
+    ]
+  }]
+}
+
+# 3. On device:
+#    - Bootloader loads kernel
+#    - Kernel loads settings.GUIKIT/main_gui.json
+#    - User adjusts slider
+#    - Button saves to /etc/settings.json
+```
+
+---
+
+## 🛠️ Technical Stack
+
+### Hardware Components
+| Component | Purpose | Typical Model |
+|-----------|---------|---------------|
+| MCU | Main processor | ESP8266 (NodeMCU) or ESP32 |
+| TFT Display | GUI output | ST7789 (320x240) |
+| Touch Panel | User input | XPT2046 (resistive) |
+| SD Card | GUI storage | MicroSD (FAT32) |
+| External RAM | GUI memory | 23LC1024 (128KB SRAM) |
+| SPI Expander | GPIO expansion | MCP23S17 (16 GPIO) |
+| CS Decoder | CS line expansion | 74HC154 (4→16, active-low) |
+
+### Software Dependencies
+| Library | Purpose | Version |
+|---------|---------|---------|
+| ArduinoJson | JSON parsing | 6.21.0 |
+| TFT_eSPI | TFT display | Latest |
+| SD | SD card access | Arduino built-in |
+| SPI | SPI bus | Arduino built-in |
+| WiFi | Network | Arduino built-in |
+| FreeRTOS | Multi-core (ESP32) | Built-in |
+
+### File Structure on SD Card
+```
+/
+├── boot/
+│   └── bootloader.bin          # Bootloader firmware (11KB)
+├── kernel/
+│   ├── kernel.bin              # Main kernel firmware (up to 2MB)
+│   └── kernel_version.txt      # Version information
+├── gui/
+│   ├── chooser.GUIKIT/         # Project chooser
+│   │   ├── main_gui.json
+│   │   └── project.meta.json
+│   ├── editor.GUIKIT/          # Web editor
+│   │   ├── main_gui.json
+│   │   └── scripts/
+│   ├── webdav.GUIKIT/          # WebDAV manager
+│   │   ├── main_gui.json
+│   │   └── scripts/
+│   ├── users.GUIKIT/           # User manager
+│   │   ├── main_gui.json
+│   │   └── scripts/
+│   └── MyProject.GUIKIT/       # User-created project
+│       ├── main_gui.json
+│       ├── project.meta.json
+│       └── scripts/
+├── home/
+│   └── username/
+│       └── projects/           # User's projects
+│
+├── etc/
+│   ├── GUIKIT_autostart.ini    # Boot configuration
+│   ├── guikitloader.conf       # Loader configuration
+│   └── user.skel/              # User home template
+│       ├── README.md
+│       └── projects/
+│
+└── system/
+    └── ...                     # System files
+```
+
+---
+
+## 📊 Memory Management Strategy
+
+### The Challenge
+ESP8266 has only **~80KB RAM** (internal), but GUIKit needs:
+- Framebuffer: 75KB (320x240 @ 4bpp)
+- Widgets: ~43KB (for 100+ widgets)
+- Images: 300+KB
+- **Total needed: ~600KB+**
+
+### The Solution: 3-Tier Memory Strategy
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    MEMORY STRATEGY                             │
+├─────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  TIER 1: INTERNAL RAM (Priority: Highest)                   │
+│  ├─ Small GUIs (< 40KB)                                      │
+│  ├─ Critical data structures                                 │
+│  └─ Fastest access                                            │
+│                                                                  │
+│  TIER 2: EXTERNAL RAM (Priority: Medium)                    │
+│  ├─ Medium GUIs (40KB - 500KB)                                │
+│  ├─ 23LC1024 (128KB SRAM)                                    │
+│  ├─ Accessed via SPI (slower than internal)                 │
+│  └─ Used for GUI JSON and widget data                       │
+│                                                                  │
+│  TIER 3: SD CARD SWAP (Priority: Lowest)                    │
+│  ├─ Large GUIs (> 500KB)                                      │
+│  ├─ GUI JSON stays on SD card                                │
+│  ├─ Only parsed parts loaded to RAM                         │
+│  └─ Slowest but unlimited storage                            │
+│                                                                  │
+│  STRATEGY: STOP-AT-FIRST-SUCCESS                              │
+│  1. Try External RAM first                                   │
+│  2. If not available/big enough, try SD Swap                 │
+│  3. If all else fails, use Internal RAM                      │
+│                                                                  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Memory Usage by Feature
+| Feature | Internal RAM | External RAM | Notes |
+|---------|--------------|--------------|-------|
+| Basic GUI (10 widgets) | 5KB | 0 | Fits in internal |
+| Medium GUI (50 widgets) | 20KB | 30KB | Needs external |
+| Huge GUI (100+ widgets) | 40KB | 100KB+ | Needs external |
+| Framebuffer (4bpp) | 0 | 75KB | Always external |
+| Image cache | 0 | 200KB+ | External or swap |
+| Widget pool | 10KB | 0 | Internal |
+
+### ESP32 vs ESP8266
+| Feature | ESP8266 | ESP32 |
+|---------|---------|-------|
+| Internal RAM | 80KB | 320KB |
+| External RAM | SRAM (SPI) | PSRAM (native) |
+| Cores | 1 | 2 (dual-core) |
+| Speed | 80/160 MHz | 80/160/240 MHz |
+| SPI | Standard | Quad SPI (faster) |
+| PSRAM | No | Yes (8MB possible) |
+| Recommended for | Small GUIs | Full feature set |
+
+---
+
 ## 🔍 Testing Without Hardware
 
 Since you don't have physical hardware, use these methods:
@@ -379,6 +736,85 @@ You asked: "why 2 different location?"
 - `docs/discussion_analysis/13_UI_PARSER.md` - Design specification
 - `docs/discussion_analysis/15_PROJECT_STRUCTURE.md` - Project structure
 - `src/gui_editor/server/gui/chooser.GUIKIT/main_gui.json` - Example GUI JSON
+
+---
+
+---
+
+## 🚀 Project Vision & Long-Term Goals
+
+### The Big Picture
+**GUIKit** aims to be the **ultimate GUI framework for ESP8266/ESP32**, enabling:
+- Professional-quality GUIs without sacrificing performance
+- Dynamic UI updates without recompilation
+- Web-based development workflow
+- Scalable from small devices to large touchscreen systems
+
+### Target Use Cases
+1. **IoT Dashboards** - Real-time data visualization
+2. **Home Automation** - Smart home control panels
+3. **Industrial HMI** - Machine control interfaces
+4. **Portable Devices** - Handheld measurement tools
+5. **Automotive** - Car infotainment systems
+6. **Robotics** - Robot control interfaces
+7. **Medical Devices** - Patient monitoring displays
+8. **Retro Gaming** - Emulator frontends
+
+### Roadmap
+
+#### ✅ Phase 1: Core System (COMPLETED)
+- Bootloader-kernel separation
+- JSON-based GUI loading
+- Basic widget types (view, button, label, slider)
+- Memory management system
+- Web-based editor
+
+#### ✅ Phase 2: Advanced Features (COMPLETED)
+- External RAM support
+- CS line multiplexing
+- Multi-core support (ESP32)
+- WebDAV integration
+- User management
+- mDNS service discovery
+- Image converters
+- RAM length detection
+
+#### 🎯 Phase 3: Polish & Optimization (IN PROGRESS)
+- [x] JSON parser implementation (NEW)
+- [ ] Complete all widget types
+- [ ] Style system integration
+- [ ] JSON export/generation
+- [ ] Performance optimization
+- [ ] Memory usage reduction
+- [ ] Bug fixes and edge cases
+
+#### 🔮 Phase 4: Advanced Features
+- [ ] Drag-and-drop GUI editor
+- [ ] Animation system
+- [ ] Theming support
+- [ ] Localization/i18n
+- [ ] Voice control integration
+- [ ] Gesture recognition
+- [ ] 3D graphics support
+
+#### 🌟 Phase 5: Ecosystem
+- [ ] Plugin system
+- [ ] Widget marketplace
+- [ ] Cloud sync for projects
+- [ ] Community templates
+- [ ] Documentation generator
+- [ ] IDE integration
+
+### Success Metrics
+| Metric | Current | Target |
+|--------|---------|--------|
+| Widget types | 7 | 15+ |
+| GUI projects | 8 | 20+ |
+| Documentation | 300K lines | 500K+ lines |
+| RAM usage | ~600KB | <500KB (optimized) |
+| Boot time | ~2s | <1s |
+| FPS (ESP32) | 30 | 60+ |
+| FPS (ESP8266) | 5-10 | 15-20 |
 
 ---
 
